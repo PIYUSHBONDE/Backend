@@ -18,6 +18,11 @@ from google.adk.sessions import DatabaseSessionService
 from datetime import datetime, timezone
 from google.genai import types
 
+# --- NEW: SQLAlchemy Imports ---
+from sqlalchemy import create_engine, Column, String, DateTime
+from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.exc import SQLAlchemyError
+
 from memory_agent.agent import memory_agent
 
 # --- 1. SETUP ---
@@ -46,6 +51,7 @@ db_url = f"postgresql+psycopg2://{DB_USER}:{encoded_password}@{DB_PUBLIC_IP}/{DB
 JIRA_PROJECT_KEY = "SCRUM" 
 JIRA_ISSUE_TYPE_NAME = "Task"
 
+
 vertexai.init(
     project=GOOGLE_CLOUD_PROJECT,
     location=GOOGLE_CLOUD_LOCATION,
@@ -66,6 +72,20 @@ except Exception as e:
     # You might want to exit the app if this fails
     # exit(1)
 
+# This reuses your existing database connection URL
+engine = create_engine(db_url)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+class ConversationMetadata(Base):
+    __tablename__ = 'conversation_metadata'
+    session_id = Column(String, primary_key=True, index=True)
+    user_id = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
+
+# Create the table if it doesn't exist
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="HealthCase AI Agent API")
 
@@ -101,6 +121,9 @@ class NewSessionRequest(BaseModel):
 class SendMessageRequest(BaseModel):
     user_id: str
     message: str
+    
+class RenamePayload(BaseModel):
+    new_title: str
 
 # --- 2. SYNC HELPERS ---
 def call_vertex_agent(user_id: str, session_id: str, message: str) -> list:
@@ -134,6 +157,7 @@ def get_jira_auth_header() -> str:
 def format_description_for_jira(data: TestCasePayload) -> dict:
     # ... (function from previous response to format description)
     pass
+
 
 
 # --- 3. ENDPOINTS ---
@@ -230,27 +254,43 @@ async def create_jira_test_case(test_case: TestCasePayload):
 @app.post("/new-session")
 async def create_new_session(req: NewSessionRequest):
     """Creates a new chat session for a user."""
+    db = SessionLocal()
     try:
         # This state is used only when creating a brand new session
         initial_state = {
             "user_name": "Default User", 
             "history": [],
-            "reminders": [] # Add this line
+            "reminders": [],
         }
         
-        new_session = await session_service.create_session(
+        new_adk_session = await session_service.create_session(
             app_name=runner.app_name,
             user_id=req.user_id,
             state=initial_state,
         )
-        print(f"Created new session: {new_session.id} for user: {req.user_id}")
-        return {"session_id": new_session.id, "title": "New Conversation"}
+        
+        default_title = "New Conversation"
+        new_metadata = ConversationMetadata(
+            session_id=new_adk_session.id,
+            user_id=req.user_id,
+            title=default_title,
+            updated_at=datetime.now(timezone.utc)
+        )
+        db.add(new_metadata)
+        db.commit()
+        
+        print(f"Created new session: {new_adk_session.id} for user: {req.user_id}")
+        return {"session_id": new_adk_session.id, "title": default_title}
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
     
 @app.post("/sessions/{session_id}/messages")
 async def send_message(session_id: str, req: SendMessageRequest):
     """Sends a message to an existing session and gets the agent's response."""
+    db = SessionLocal()
     try:
         content = types.Content(role="user", parts=[types.Part(text=req.message)])
         final_response_text = ""
@@ -261,60 +301,51 @@ async def send_message(session_id: str, req: SendMessageRequest):
             if event.is_final_response() and event.content.parts and hasattr(event.content.parts[0], "text"):
                 final_response_text = event.content.parts[0].text.strip()
         
-        # --- THIS IS THE NEW LOGIC ---
-        # After getting a response, we update the session's state with a new timestamp.
-        try:
-            session = await session_service.get_session(
-                app_name=runner.app_name, user_id=req.user_id, session_id=session_id
-            )
-            session.state["last_updated"] = datetime.now(timezone.utc).isoformat()
-            
-            # If the conversation is new, set its title from the first message
-            if "title" not in session.state or session.state["title"] == "Untitled Conversation":
-                session.state["title"] = req.message[:50] # Use the first 50 chars as a title
-                
-            await session_service.update_session(session=session)
-        except Exception as update_error:
-            # Log this error, but don't fail the whole request
-            print(f"Warning: Failed to update session timestamp for {session_id}: {update_error}")
-        # --- END OF NEW LOGIC ---
+        # --- NEW: Update our metadata table ---
+        updated_title = None
+        session_metadata = db.query(ConversationMetadata).filter(
+            ConversationMetadata.session_id == session_id,
+            ConversationMetadata.user_id == req.user_id
+        ).first()
 
-        return {"role": "assistant", "text": final_response_text}
+        if session_metadata:
+            session_metadata.updated_at = datetime.now(timezone.utc)
+            if session_metadata.title == "New Conversation":
+                new_title = req.message[:50]
+                session_metadata.title = new_title
+                updated_title = new_title
+            
+            db.commit()
+        
+        return {"role": "assistant", "text": final_response_text, "updated_title": updated_title}
     except Exception as e:
-        print(f"Error sending message for session {session_id}: {e}")
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
 
 
 @app.get("/sessions/{user_id}")
 async def list_sessions(user_id: str):
     """Lists all existing sessions for a user."""
+    db = SessionLocal()
     try:
-        existing_sessions = await session_service.list_sessions(
-            app_name=runner.app_name,
-            user_id=user_id,
-        )
+        # Query our new table, ordering by the last updated time
+        sessions_metadata = db.query(ConversationMetadata).filter(
+            ConversationMetadata.user_id == user_id
+        ).order_by(ConversationMetadata.updated_at.desc()).all()
         
-        # Correctly format the sessions
-        formatted_sessions = []
-        for s in existing_sessions.sessions:
-            # The timestamp is now read from the 'state' dictionary
-            # We provide a default value if it's not present
-            last_updated = s.state.get("last_updated", datetime.now(timezone.utc).isoformat())
-            
-            formatted_sessions.append({
-                "id": s.id, 
-                "title": s.state.get("title", "Untitled Conversation"), 
-                "updatedAt": last_updated
-            })
-        
-        # Sort sessions by the updatedAt timestamp, newest first
-        formatted_sessions.sort(key=lambda x: x['updatedAt'], reverse=True)
+        formatted_sessions = [{
+            "id": s.session_id, 
+            "title": s.title, 
+            "updatedAt": s.updated_at.isoformat()
+        } for s in sessions_metadata]
             
         return {"sessions": formatted_sessions}
     except Exception as e:
-        # It's good practice to log the error on the server
-        print(f"Error listing sessions for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
     
 @app.get("/sessions/{session_id}/messages")
 async def get_session_messages(session_id: str, user_id: str): # user_id for security
@@ -329,8 +360,8 @@ async def get_session_messages(session_id: str, user_id: str): # user_id for sec
         events = session.events
         messages = []
         
-        print(f"Fetched {len(events)} events for session {session_id}")
-        print(f"Sample event: {events}")
+        # print(f"Fetched {len(events)} events for session {session_id}")
+        # print(f"Sample event: {events}")
 
         for event in events:
             # Check if the event has content and parts
@@ -350,3 +381,28 @@ async def get_session_messages(session_id: str, user_id: str): # user_id for sec
     except Exception as e:
         print(f"Error fetching messages for session {session_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+    
+@app.patch("/sessions/{session_id}/title")
+async def rename_session_title(session_id: str, payload: RenamePayload, user_id: str):
+    """Updates the title of a specific conversation."""
+    db = SessionLocal()
+    try:
+        session_metadata = db.query(ConversationMetadata).filter(
+            ConversationMetadata.session_id == session_id,
+            ConversationMetadata.user_id == user_id
+        ).first()
+
+        if not session_metadata:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        session_metadata.title = payload.new_title
+        session_metadata.updated_at = datetime.now(timezone.utc)
+        db.commit()
+
+        return {"status": "success", "new_title": payload.new_title}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
