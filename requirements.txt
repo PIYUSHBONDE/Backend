@@ -7,3 +7,5 @@ google-cloud-bigquery>=3.10.0
 google-cloud-secret-manager>=2.11.0   # optional, if using secrets
 python-dotenv>=1.0.0                  # optional, for local env files
 pydantic>=1.10.0
+google-cloud-aiplatform
+python-multipart
