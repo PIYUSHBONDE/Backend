@@ -9,3 +9,5 @@ python-dotenv>=1.0.0                  # optional, for local env files
 pydantic>=1.10.0
 google-cloud-aiplatform
 python-multipart
+google-adk  
+google-cloud-aiplatform
