@@ -11,3 +11,4 @@ google-cloud-aiplatform
 python-multipart
 google-adk  
 google-cloud-aiplatform
+psycopg2-binary>=2.9.6
