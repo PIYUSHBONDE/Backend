@@ -17,49 +17,61 @@ from google.adk.runners import Runner
 from google.adk.sessions import DatabaseSessionService
 from datetime import datetime, timezone
 from google.genai import types
+from google.cloud import storage
+from vertexai import rag
+from fastapi import BackgroundTasks
 
-# --- NEW: SQLAlchemy Imports ---
-from sqlalchemy import create_engine, Column, String, DateTime
-from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy.exc import SQLAlchemyError
+
+import uuid
+from sqlalchemy import text
+
+
+from models import (
+    Base,
+    engine,          
+    SessionLocal,    
+    ConversationMetadata,
+    Document,
+)
 
 from memory_agent.agent import memory_agent
 
 # --- 1. SETUP ---
 load_dotenv()
 
-AGENT_RESOURCE_ID = os.getenv("AGENT_RESOURCE_ID")
+# GCS Client Setup
+storage_client = storage.Client()
+BUCKET_NAME = os.getenv("BUCKET_NAME") # Ensure BUCKET_NAME is in your .env for uploads
+
+# Agent/Vertex AI Config
+AGENT_RESOURCE_ID = os.getenv("AGENT_RESOURCE_ID") # Keep if using remote agent engines elsewhere
 GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT")
 GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION")
-GOOGLE_CLOUD_STAGING_BUCKET = os.getenv("GOOGLE_CLOUD_STAGING_BUCKET")
-BUCKET_NAME = os.getenv("BUCKET_NAME")
+GOOGLE_CLOUD_STAGING_BUCKET = os.getenv("GOOGLE_CLOUD_STAGING_BUCKET") # Needed for vertexai.init
 
+# Jira Config
 JIRA_DOMAIN = os.getenv("JIRA_DOMAIN")
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
-
-# Database Configuration
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_PUBLIC_IP = os.getenv("DB_PUBLIC_IP")
-DB_NAME = os.getenv("DB_NAME")
-encoded_password = quote_plus(DB_PASSWORD)
-
-db_url = f"postgresql+psycopg2://{DB_USER}:{encoded_password}@{DB_PUBLIC_IP}/{DB_NAME}"
-
-# You can also move these to your .env file
-JIRA_PROJECT_KEY = "SCRUM" 
+JIRA_PROJECT_KEY = "SCRUM"
 JIRA_ISSUE_TYPE_NAME = "Task"
 
+RAG_CORPUS_ID = os.getenv("DATA_STORE_ID")
+RAG_CORPUS_NAME = f"projects/{GOOGLE_CLOUD_PROJECT}/locations/{GOOGLE_CLOUD_LOCATION}/ragCorpora/{RAG_CORPUS_ID}"
 
-vertexai.init(
-    project=GOOGLE_CLOUD_PROJECT,
-    location=GOOGLE_CLOUD_LOCATION,
-    staging_bucket=GOOGLE_CLOUD_STAGING_BUCKET
-)
+# Vertex AI Init (Check if project/location are loaded)
+if GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION and GOOGLE_CLOUD_STAGING_BUCKET:
+    vertexai.init(
+        project=GOOGLE_CLOUD_PROJECT,
+        location=GOOGLE_CLOUD_LOCATION,
+        staging_bucket=GOOGLE_CLOUD_STAGING_BUCKET
+    )
+    print("✅ Vertex AI initialized.")
+else:
+    print("⚠️ Vertex AI NOT initialized - Missing GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, or GOOGLE_CLOUD_STAGING_BUCKET in .env")
 
 try:
-    session_service = DatabaseSessionService(db_url=db_url)
+    session_service = DatabaseSessionService(db_url=engine.url)
     
     runner = Runner(
         agent=memory_agent,
@@ -72,20 +84,71 @@ except Exception as e:
     # You might want to exit the app if this fails
     # exit(1)
 
-# This reuses your existing database connection URL
-engine = create_engine(db_url)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+try:
+    with engine.connect() as conn:
+        # Ensure base tables exist
+        Base.metadata.create_all(bind=conn)
 
-class ConversationMetadata(Base):
-    __tablename__ = 'conversation_metadata'
-    session_id = Column(String, primary_key=True, index=True)
-    user_id = Column(String, nullable=False)
-    title = Column(String, nullable=False)
-    updated_at = Column(DateTime(timezone=True), nullable=False)
+        # --- Schema synchronization (for older DBs) ---
+        conn.execute(text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS session_id VARCHAR(255);"))
+        conn.execute(text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
 
-# Create the table if it doesn't exist
-Base.metadata.create_all(bind=engine)
+        # --- Extensions and indexes ---
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+        conn.execute(text("""
+            ALTER TABLE vector_embeddings 
+            ADD COLUMN IF NOT EXISTS embedding vector(768);
+        """))
+
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_doc_content_hash ON documents(content_hash);"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_doc_status_user ON documents(status, user_id);"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_vec_document_id ON vector_embeddings(document_id);"))
+        conn.execute(text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS gcs_uri VARCHAR(500);"))
+        conn.execute(text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS rag_file_id VARCHAR(500);"))
+
+        conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_doc_session_active
+            ON documents(session_id, is_active)
+            WHERE status = 'active';
+        """))
+        conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_vec_embedding_hnsw
+            ON vector_embeddings
+            USING hnsw (embedding vector_cosine_ops);
+        """))
+        
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS requirement_traces (
+                id SERIAL PRIMARY KEY,
+                requirement_id VARCHAR(50) NOT NULL,
+                requirement_text TEXT NOT NULL,
+                requirement_type VARCHAR(50),
+                category VARCHAR(100),
+                compliance_standard VARCHAR(50),
+                risk_level VARCHAR(20),
+                source_section VARCHAR(200),
+                regulatory_refs TEXT[],
+                source_document_id VARCHAR(255),
+                test_case_ids TEXT[],
+                jira_issue_keys TEXT[],
+                session_id VARCHAR(255) NOT NULL,
+                user_id VARCHAR(255) NOT NULL,
+                status VARCHAR(50) DEFAULT 'extracted',
+                coverage_percentage INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_req_session ON requirement_traces(session_id);
+            CREATE INDEX IF NOT EXISTS idx_req_id_session ON requirement_traces(requirement_id, session_id);
+        """))
+                
+        conn.commit()
+
+    print("✅ Database tables and vector extension verified.")
+except Exception as e:
+    print(f"❌ Failed to initialize database extensions/indexes: {e}")
+
 
 app = FastAPI(title="HealthCase AI Agent API")
 
@@ -251,39 +314,52 @@ async def create_jira_test_case(test_case: TestCasePayload):
         raise HTTPException(status_code=500, detail=str(e))
     
     
+# main.py
+
 @app.post("/new-session")
 async def create_new_session(req: NewSessionRequest):
-    """Creates a new chat session for a user."""
+    """Creates a new chat session and ensures user_id is in ADK state."""
     db = SessionLocal()
     try:
-        # This state is used only when creating a brand new session
+        # Include user_id in the state passed to create_session
         initial_state = {
-            "user_name": "Default User", 
-            "history": [],
-            "reminders": [],
+            "user_name": req.user_id,
+            "user_id": req.user_id, # Add user_id here for the tool
+            # Add any other initial state needed by your agent/tools
         }
-        
+        print(f"Creating session for user {req.user_id} with initial state: {initial_state}")
+
+        # 1. Create the ADK session with the initial state containing user_id
         new_adk_session = await session_service.create_session(
             app_name=runner.app_name,
             user_id=req.user_id,
-            state=initial_state,
+            state=initial_state, # Pass the state including user_id
         )
-        
+        new_session_id = new_adk_session.id
+        print(f"ADK session created with ID: {new_session_id}")
+
+        # --- NO NEED TO UPDATE STATE HERE ---
+        # The session_id will be available via tool_context later
+
+        # 2. Save conversation metadata (for listing sessions in UI)
         default_title = "New Conversation"
         new_metadata = ConversationMetadata(
-            session_id=new_adk_session.id,
+            session_id=new_session_id,
             user_id=req.user_id,
             title=default_title,
             updated_at=datetime.now(timezone.utc)
         )
         db.add(new_metadata)
         db.commit()
-        
-        print(f"Created new session: {new_adk_session.id} for user: {req.user_id}")
-        return {"session_id": new_adk_session.id, "title": default_title}
+
+        print(f"Created new session metadata: {new_session_id} for user: {req.user_id}")
+        return {"session_id": new_session_id, "title": default_title}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ Error creating new session: {e}")
+        import traceback
+        traceback.print_exc() # Print full traceback for debugging
+        raise HTTPException(status_code=500, detail=f"Failed to create session: {e}")
     finally:
         db.close()
     
@@ -406,3 +482,264 @@ async def rename_session_title(session_id: str, payload: RenamePayload, user_id:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
+        
+
+# ========== RAG DOCUMENT ENDPOINTS ==========
+
+@app.post("/api/rag/upload")
+async def upload_document_rag(
+    background_tasks: BackgroundTasks, 
+    file: UploadFile = File(...),
+    user_id: str = Form(...),
+    session_id: str = Form(...)  # Frontend is sending this
+):
+    """
+    (Simplified) Uploads a document and links it to a session.
+    This version just creates the database record so it appears in the UI.
+    """
+    if not BUCKET_NAME:
+         raise HTTPException(status_code=500, detail="GCS Bucket name not configured.")
+     
+    db = SessionLocal()
+    try:
+        # 1. Upload to GCS
+        bucket = storage_client.bucket(BUCKET_NAME)
+        # Create a unique path, maybe including user/session ID
+        blob_name = f"user_{user_id}/session_{session_id}/{uuid.uuid4()}_{file.filename}"
+        blob = bucket.blob(blob_name)
+        
+        contents = await file.read()
+        blob.upload_from_string(contents, content_type=file.content_type)
+        gcs_uri = f"gs://{BUCKET_NAME}/{blob_name}"
+        
+        print(f"✅ File uploaded to GCS: {gcs_uri}")
+        
+        # Create a placeholder document record
+        doc_id = str(uuid.uuid4())
+        new_doc = Document(
+            id=str(doc_id),
+            filename=file.filename,
+            user_id=user_id,
+            session_id=session_id,
+            is_active=True,
+            status='processing',
+            # Simulating some data for the UI
+            total_pages=0, 
+            chunk_count=0,
+            gcs_uri=gcs_uri,
+            document_summary="Processing document...",
+            rag_file_id=None
+        )
+        db.add(new_doc)
+        db.commit()
+        db.refresh(new_doc)
+
+        print(f"✅ (Simplified Upload) Saved doc {new_doc.id} to session {session_id}")
+        
+        # 3. Import to RAG Engine (async in background)
+        background_tasks.add_task(
+            import_to_rag_engine,
+            doc_id=str(doc_id),
+            gcs_uri=gcs_uri,
+            user_id=user_id,
+            session_id=session_id,
+            filename=file.filename
+        )
+
+        return {
+            "status": "success",
+            "document_id": new_doc.id,
+            "filename": new_doc.filename,
+            "gcs_uri": gcs_uri,
+            "message": "Document uploaded and is processing."
+        }
+        # --- END OF SIMPLIFIED VERSION ---
+    
+    except Exception as e:
+        db.rollback() # Rollback DB changes if GCS upload or DB save fails
+        print(f"❌ RAG Upload Error: {e}")
+        # Attempt to delete the GCS file if DB save failed
+        if blob:
+            try:
+                print(f"   -> Attempting to clean up GCS blob: {blob.name}")
+                blob.delete()
+                print(f"   -> GCS blob deleted.")
+            except Exception as delete_e:
+                print(f"   -> Failed to delete GCS blob {blob.name}: {delete_e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to upload document: {e}")
+    finally:
+        db.close()
+        
+def import_to_rag_engine(
+    doc_id: str,
+    gcs_uri: str,
+    user_id: str,
+    session_id: str,
+    filename: str
+):
+    """
+    Background task to import document to RAG Engine
+    """
+    db = SessionLocal()
+    try:
+        print(f"📥 Starting RAG import for {doc_id}")
+        
+        # Import to RAG Engine with chunking config
+        response = rag.import_files(
+            corpus_name=RAG_CORPUS_NAME,
+            paths=[gcs_uri],
+            transformation_config=rag.TransformationConfig(
+                chunking_config=rag.ChunkingConfig(
+                    chunk_size=512,      # Adjust based on your needs
+                    chunk_overlap=100
+                )
+            ),
+            max_embedding_requests_per_min=900
+        )
+        
+        # Get the RAG file ID
+        rag_file_id = None
+        if response.imported_rag_files_count > 0:
+            try:
+                # List files and find the one we just imported
+                files = list(rag.list_files(corpus_name=RAG_CORPUS_NAME))
+                
+                # Find by GCS URI or filename (most recently added)
+                for file in reversed(files):  
+                    if filename in file.display_name:
+                        rag_file_id = file.name
+                        print(f"✅ Found RAG file: {rag_file_id}")
+                        break
+                
+                # If not found by display name, use the last file
+                if not rag_file_id and files:
+                    rag_file_id = files[-1].name
+                    print(f"⚠️ Using last file as fallback: {rag_file_id}")
+                    
+            except Exception as list_error:
+                print(f"⚠️ Could not list files: {list_error}")
+                # Fallback: construct expected ID
+                rag_file_id = f"{RAG_CORPUS_NAME}/ragFiles/{doc_id}"
+        
+        if not rag_file_id:
+            raise Exception("Failed to get RAG file ID after import")
+        
+        print(f"✅ RAG import complete: {rag_file_id}")
+        
+        # Update document record
+        doc = db.query(Document).filter(Document.id == doc_id).first()
+        if doc:
+            doc.rag_file_id = rag_file_id
+            doc.status = 'active'
+            doc.document_summary = f"Document processed successfully. Ready for querying."
+            doc.chunk_count = 1  # You can calculate actual chunks if needed
+            db.commit()
+            print(f"✅ Updated document {doc_id} with RAG file ID")
+    
+    except Exception as e:
+        print(f"❌ RAG import failed for {doc_id}: {e}")
+        # Update document status to failed
+        doc = db.query(Document).filter(Document.id == doc_id).first()
+        if doc:
+            doc.status = 'failed'
+            doc.document_summary = f"Failed to process: {str(e)}"
+            db.commit()
+        import traceback
+        traceback.print_exc()
+    finally:
+        db.close()
+
+
+@app.get("/api/rag/documents/session/{session_id}")
+async def get_session_documents(session_id: str, user_id: str):
+    """
+    Gets all documents associated with a specific session for a user.
+    (This is called by DocumentManager.tsx)
+    """
+    db = SessionLocal()
+    try:
+        # Query using SQLAlchemy ORM (safer than raw SQL)
+        docs = db.query(
+            Document.id,
+            Document.filename,
+            Document.chunk_count,
+            Document.total_pages,
+            Document.document_summary,
+            Document.upload_date,
+            Document.is_active
+        ).filter(
+            Document.session_id == session_id,
+            Document.user_id == user_id,
+            Document.status == 'active'
+        ).order_by(Document.upload_date.desc()).all()
+
+        active_count = sum(1 for d in docs if d.is_active)
+
+        return {
+            "documents": [
+                {
+                    "id": str(d.id), # Ensure ID is string
+                    "filename": d.filename,
+                    "chunk_count": d.chunk_count,
+                    "total_pages": d.total_pages,
+                    "summary": d.document_summary,
+                    "uploaded": d.upload_date.isoformat() if d.upload_date else None,
+                    "is_active": d.is_active
+                }
+                for d in docs
+            ],
+            "total": len(docs),
+            "active_count": active_count
+        }
+    except Exception as e:
+        print(f"❌ Get Session Docs Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
+@app.patch("/api/rag/documents/{document_id}/toggle")
+async def toggle_document_active(
+    document_id: str,
+    user_id: str = Form(...), # Read user_id from form body
+    is_active: bool = Form(...) # Read new status from form body
+):
+    """
+    Toggles a document's active status.
+    (This is called by DocumentManager.tsx via api.js)
+    """
+    db = SessionLocal()
+    try:
+        # Verify ownership
+        doc = db.query(Document).filter(
+            Document.id == document_id,
+            Document.user_id == user_id,
+            Document.status == 'active'
+        ).first()
+
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found or not authorized")
+
+        # Set the new status from the request
+        doc.is_active = is_active
+        db.commit()
+
+        print(f"✅ Toggled doc {doc.id} for user {user_id} to {is_active}")
+
+        return {
+            "status": "success",
+            "document_id": doc.id,
+            "is_active": doc.is_active
+        }
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Toggle Doc Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+        
+@app.get("/")
+async def root():
+    return {"message": "HealthCase AI Agent API is running"}

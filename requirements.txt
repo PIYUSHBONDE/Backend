@@ -12,3 +12,15 @@ python-multipart
 google-adk  
 google-cloud-aiplatform
 psycopg2-binary>=2.9.6
+
+
+pgvector==0.2.4
+pydantic-settings==2.1.0
+httpx==0.26.0
+sqlalchemy==2.0.23
+
+# Document processing - ENHANCED
+unstructured[all-docs]==0.11.8  # Handles PDF, DOCX, images, tables, etc.
+PyPDF2==3.0.1  # Fallback for basic PDF
+python-magic==0.4.27  # File type detection
+Pillow==10.1.0  # Image processing
