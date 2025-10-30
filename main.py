@@ -2,7 +2,7 @@ import os
 import json
 import base64
 import httpx
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -15,12 +15,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from urllib.parse import quote_plus
 from google.adk.runners import Runner
 from google.adk.sessions import DatabaseSessionService
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from google.genai import types
 from google.cloud import storage
 from vertexai import rag
 from fastapi import BackgroundTasks
-
+import requests
 
 import uuid
 from sqlalchemy import text
@@ -32,9 +32,23 @@ from models import (
     SessionLocal,    
     ConversationMetadata,
     Document,
+    JiraConnection,
+    RequirementTrace,
+    
 )
 
+from jira_service import (
+    get_valid_connection,
+    fetch_jira_projects,
+    fetch_jira_requirements,
+    create_jira_test_case
+)
+import secrets
+from urllib.parse import urlencode
+from fastapi.responses import RedirectResponse
+
 from memory_agent.agent import memory_agent
+from workflow_agent.agent import workflow_agent
 
 # --- 1. SETUP ---
 load_dotenv()
@@ -55,6 +69,17 @@ JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_PROJECT_KEY = "SCRUM"
 JIRA_ISSUE_TYPE_NAME = "Task"
+
+
+# State storage for OAuth (use Redis in production)
+oauth_states = {}
+
+# OAuth Config
+JIRA_OAUTH_CLIENT_ID = os.getenv("JIRA_OAUTH_CLIENT_ID")
+JIRA_OAUTH_CLIENT_SECRET = os.getenv("JIRA_OAUTH_CLIENT_SECRET") 
+JIRA_OAUTH_CALLBACK_URL = os.getenv("JIRA_OAUTH_CALLBACK_URL", "http://localhost:8000/api/jira/callback")
+
+
 
 RAG_CORPUS_ID = os.getenv("DATA_STORE_ID")
 RAG_CORPUS_NAME = f"projects/{GOOGLE_CLOUD_PROJECT}/locations/{GOOGLE_CLOUD_LOCATION}/ragCorpora/{RAG_CORPUS_ID}"
@@ -141,6 +166,12 @@ try:
             
             CREATE INDEX IF NOT EXISTS idx_req_session ON requirement_traces(session_id);
             CREATE INDEX IF NOT EXISTS idx_req_id_session ON requirement_traces(requirement_id, session_id);
+        """))
+        
+        conn.execute(text("""
+            ALTER TABLE jira_connections 
+            ALTER COLUMN access_token TYPE VARCHAR(3000),
+            ALTER COLUMN refresh_token TYPE VARCHAR(3000);
         """))
                 
         conn.commit()
@@ -279,39 +310,39 @@ async def test_jira_connection():
 
 # --- CORRECTED JIRA ENDPOINT ---
 
-@app.post("/create-jira-test-case")
-async def create_jira_test_case(test_case: TestCasePayload):
-    api_url = f"https://{JIRA_DOMAIN}/rest/api/3/issue"
-    headers = {
-        "Authorization": get_jira_auth_header(),
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-    }
+# @app.post("/create-jira-test-case")
+# async def create_jira_test_case(test_case: TestCasePayload):
+#     api_url = f"https://{JIRA_DOMAIN}/rest/api/3/issue"
+#     headers = {
+#         "Authorization": get_jira_auth_header(),
+#         "Accept": "application/json",
+#         "Content-Type": "application/json",
+#     }
     
-    issue_payload = {
-        "fields": {
-            "project": {"key": JIRA_PROJECT_KEY},
-            "summary": test_case.title,
-            "description": format_description_for_jira(test_case),
-            "issuetype": {"name": JIRA_ISSUE_TYPE_NAME}
-        }
-    }
+#     issue_payload = {
+#         "fields": {
+#             "project": {"key": JIRA_PROJECT_KEY},
+#             "summary": test_case.title,
+#             "description": format_description_for_jira(test_case),
+#             "issuetype": {"name": JIRA_ISSUE_TYPE_NAME}
+#         }
+#     }
 
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(api_url, headers=headers, json=issue_payload)
-        response.raise_for_status()
-        created_issue = response.json()
-        issue_url = f"https://{JIRA_DOMAIN}/browse/{created_issue['key']}"
-        return {
-            "status": "Issue created successfully!",
-            "issue_key": created_issue['key'],
-            "url": issue_url
-        }
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=e.response.json())
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+#     try:
+#         async with httpx.AsyncClient() as client:
+#             response = await client.post(api_url, headers=headers, json=issue_payload)
+#         response.raise_for_status()
+#         created_issue = response.json()
+#         issue_url = f"https://{JIRA_DOMAIN}/browse/{created_issue['key']}"
+#         return {
+#             "status": "Issue created successfully!",
+#             "issue_key": created_issue['key'],
+#             "url": issue_url
+#         }
+#     except httpx.HTTPStatusError as e:
+#         raise HTTPException(status_code=e.response.status_code, detail=e.response.json())
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
     
     
 # main.py
@@ -739,6 +770,402 @@ async def toggle_document_active(
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
+        
+        
+# ============================================================================
+# JIRA OAUTH ENDPOINTS
+# ============================================================================
+
+@app.get("/api/jira/connect")
+async def jira_connect(user_id: str):
+    """Initiate OAuth flow."""
+    state = secrets.token_urlsafe(32)
+    oauth_states[state] = user_id
+    
+    params = {
+        "audience": "api.atlassian.com",
+        "client_id": JIRA_OAUTH_CLIENT_ID,
+        "scope": (
+            "read:jira-work read:jira-user write:jira-work "
+            "read:jira-software offline_access"
+        ),
+        "redirect_uri": JIRA_OAUTH_CALLBACK_URL,
+        "state": state,
+        "response_type": "code",
+        "prompt": "consent"
+    }
+    
+    auth_url = f"https://auth.atlassian.com/authorize?{urlencode(params)}"
+    return {"authorization_url": auth_url}
+
+
+@app.get("/api/jira/callback")
+async def jira_callback(code: str, state: str):
+    """Handle OAuth callback."""
+    user_id = oauth_states.get(state)
+    if not user_id:
+        raise HTTPException(400, "Invalid state")
+    
+    # Exchange code for tokens
+    token_url = "https://auth.atlassian.com/oauth/token"
+    payload = {
+        "grant_type": "authorization_code",
+        "client_id": JIRA_OAUTH_CLIENT_ID,
+        "client_secret": JIRA_OAUTH_CLIENT_SECRET,
+        "code": code,
+        "redirect_uri": JIRA_OAUTH_CALLBACK_URL
+    }
+    
+    response = requests.post(token_url, json=payload)
+    response.raise_for_status()
+    tokens = response.json()
+    
+    # Get Jira instance
+    resources_url = "https://api.atlassian.com/oauth/token/accessible-resources"
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    resources_resp = requests.get(resources_url, headers=headers)
+    resources = resources_resp.json()
+    
+    if not resources:
+        raise HTTPException(400, "No Jira instances")
+    
+    jira_resource = resources[0]
+    
+    # Save to database
+    db = SessionLocal()
+    try:
+        existing = db.query(JiraConnection).filter(
+            JiraConnection.user_id == user_id
+        ).first()
+        
+        if existing:
+            existing.access_token = tokens["access_token"]
+            existing.refresh_token = tokens.get("refresh_token")
+            existing.token_expires_at = datetime.utcnow() + timedelta(seconds=tokens.get("expires_in", 3600))
+            existing.jira_cloud_id = jira_resource["id"]
+            existing.jira_base_url = jira_resource["url"]
+            existing.is_active = True
+        else:
+            conn = JiraConnection(
+                user_id=user_id,
+                jira_cloud_id=jira_resource["id"],
+                jira_base_url=jira_resource["url"],
+                access_token=tokens["access_token"],
+                refresh_token=tokens.get("refresh_token"),
+                token_expires_at=datetime.utcnow() + timedelta(seconds=tokens.get("expires_in", 3600))
+            )
+            db.add(conn)
+        
+        db.commit()
+        del oauth_states[state]
+        
+        # Redirect to frontend
+        return RedirectResponse(url="http://localhost:5173/jira-connected?success=true")
+    finally:
+        db.close()
+
+
+@app.get("/api/jira/status")
+async def jira_status(user_id: str):
+    """Check connection status."""
+    conn = get_valid_connection(user_id)
+    if conn:
+        return {
+            "connected": True,
+            "jira_url": conn.jira_base_url,
+            "expires_at": conn.token_expires_at.isoformat()
+        }
+    return {"connected": False}
+
+
+@app.delete("/api/jira/disconnect")
+async def jira_disconnect(user_id: str):
+    """Disconnect Jira."""
+    db = SessionLocal()
+    try:
+        db.query(JiraConnection).filter(
+            JiraConnection.user_id == user_id
+        ).update({"is_active": False})
+        db.commit()
+        return {"status": "disconnected"}
+    finally:
+        db.close()
+
+
+# ============================================================================
+# JIRA OPERATIONS (REPLACE YOUR HARDCODED ONES)
+# ============================================================================
+
+@app.get("/api/jira/projects")
+async def get_projects(user_id: str):
+    """Get projects (OAuth)."""
+    return fetch_jira_projects(user_id)
+
+
+@app.post("/api/jira/fetch-requirements")
+async def fetch_requirements(data: dict):
+    """Fetch requirements (OAuth)."""
+    return fetch_jira_requirements(data["user_id"], data["project_key"])
+
+
+@app.post("/api/jira/create-test-case")
+async def create_test_case_oauth(data: dict):
+    """Create test case (OAuth)."""
+    return create_jira_test_case(
+        user_id=data["user_id"],
+        project_key=data["project_key"],
+        test_case=data["test_case"],
+        requirement_key=data.get("requirement_key")
+    )
+    
+# main.py - SIMPLE IMPORT ENDPOINT
+
+# Modify the existing /api/jira/import-requirements endpoint
+
+@app.post("/api/jira/import-requirements")
+async def import_jira_requirements(background_tasks: BackgroundTasks, data: dict):
+    """
+    Import selected Jira requirements.
+    Saves to database + uploads to RAG corpus.
+    """
+    session_id = data.get("session_id")
+    user_id = data.get("user_id")
+    requirements = data.get("requirements", [])
+    overwrite = data.get("overwrite", False)  # NEW: Allow overwrite flag
+    
+    if not all([session_id, user_id, requirements]):
+        raise HTTPException(400, "Missing required fields")
+    
+    db = SessionLocal()
+    try:
+        imported_count = 0
+        updated_count = 0
+        
+        # 1. Save to database for tracking/UI
+        for req_data in requirements:
+            existing = db.query(RequirementTrace).filter(
+                RequirementTrace.requirement_id == req_data.get("id"),
+                RequirementTrace.session_id == session_id
+            ).first()
+            
+            if existing:
+                if overwrite:
+                    # Update existing requirement
+                    existing.requirement_text = req_data.get("text")
+                    existing.requirement_type = req_data.get("type", "functional")
+                    existing.risk_level = req_data.get("risk_level", "medium")
+                    existing.compliance_standard = req_data.get("compliance_standard", "None")
+                    existing.updated_at = datetime.now()
+                    updated_count += 1
+                else:
+                    # Skip if not overwriting
+                    continue
+            else:
+                # Create new requirement
+                requirement = RequirementTrace(
+                    requirement_id=req_data.get("id"),
+                    requirement_text=req_data.get("text"),
+                    requirement_type=req_data.get("type", "functional"),
+                    category="from_jira",
+                    compliance_standard=req_data.get("compliance_standard", "None"),
+                    risk_level=req_data.get("risk_level", "medium"),
+                    source_section=f"Jira: {req_data.get('jira_key')}",
+                    regulatory_refs=req_data.get("regulatory_refs", []),
+                    jira_issue_keys=[req_data.get("jira_key")],
+                    session_id=session_id,
+                    user_id=user_id,
+                    status='imported'
+                )
+                db.add(requirement)
+                imported_count += 1
+        
+        db.commit()
+        
+        # 2. Upload to RAG corpus in background (only if new imports)
+        if imported_count > 0:
+            background_tasks.add_task(
+                upload_requirements_to_rag,
+                requirements=requirements,
+                session_id=session_id,
+                user_id=user_id
+            )
+        
+        message = f"Imported {imported_count} new requirements"
+        if updated_count > 0:
+            message += f", updated {updated_count} existing requirements"
+        
+        return {
+            "status": "success",
+            "imported": imported_count,
+            "updated": updated_count,
+            "message": message
+        }
+    
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, str(e))
+    finally:
+        db.close()
+
+
+
+def upload_requirements_to_rag(requirements: list, session_id: str, user_id: str):
+    """Background task to upload requirements to RAG corpus."""
+    try:
+        # Format requirements as readable document
+        doc_content = "# Imported Requirements from Jira\n\n"
+        
+        for req in requirements:
+            doc_content += f"## {req.get('id')}: {req.get('text')}\n\n"
+            doc_content += f"**Jira Key:** {req.get('jira_key')}\n"
+            doc_content += f"**Type:** {req.get('type', 'Functional')}\n"
+            doc_content += f"**Risk Level:** {req.get('risk_level', 'Medium').upper()}\n"
+            doc_content += f"**Compliance:** {req.get('compliance_standard', 'None')}\n"
+            
+            if req.get('description'):
+                doc_content += f"\n**Description:**\n{req.get('description')}\n"
+            
+            doc_content += "\n---\n\n"
+        
+        # Upload to GCS
+        bucket = storage_client.bucket(BUCKET_NAME)
+        blob_name = f"user_{user_id}/session_{session_id}/jira_requirements_{uuid.uuid4()}.txt"
+        blob = bucket.blob(blob_name)
+        blob.upload_from_string(doc_content, content_type="text/plain")
+        gcs_uri = f"gs://{BUCKET_NAME}/{blob_name}"
+        
+        # Import to RAG corpus
+        rag.import_files(
+            corpus_name=RAG_CORPUS_NAME,
+            paths=[gcs_uri],
+            transformation_config=rag.TransformationConfig(
+                chunking_config=rag.ChunkingConfig(
+                    chunk_size=512,
+                    chunk_overlap=100
+                )
+            )
+        )
+        
+        print(f"✅ Uploaded {len(requirements)} requirements to RAG corpus")
+        
+    except Exception as e:
+        print(f"❌ Failed to upload requirements to RAG: {e}")
+        import traceback
+        traceback.print_exc()
+
+# main.py - ADD THIS ENDPOINT
+
+@app.get("/api/requirements/session/{session_id}")
+async def get_session_requirements_ui(session_id: str, user_id: str):
+    """Get all requirements for session for UI display."""
+    db = SessionLocal()
+    try:
+        from models import RequirementTrace
+        
+        requirements = db.query(RequirementTrace).filter(
+            RequirementTrace.session_id == session_id,
+            RequirementTrace.user_id == user_id
+        ).all()
+        
+        return {
+            "requirements": [
+                {
+                    "id": str(req.id),  # Use the database ID, not requirement_id
+                    "requirement_id": req.requirement_id,  # Keep for reference
+                    "text": req.requirement_text,
+                    "type": req.requirement_type,
+                    "risk_level": req.risk_level,
+                    "compliance_standard": req.compliance_standard,
+                    "jira_key": req.jira_issue_keys[0] if req.jira_issue_keys else None,
+                    "status": req.status,
+                    "test_case_count": len(req.test_case_ids) if req.test_case_ids else 0,
+                }
+                for req in requirements
+            ],
+            "total": len(requirements)
+        }
+    finally:
+        db.close()
+
+
+# Add after the existing /api/requirements/session/{session_id} endpoint
+
+@app.delete("/api/requirements/{requirement_id}")
+async def delete_requirement(
+    requirement_id: str,
+    user_id: str = Query(..., description="User ID must be provided"),
+    session_id: str = Query(..., description="Session ID must be provided"),
+):
+    """Delete a single requirement and clean up associated data."""
+    db = SessionLocal()
+    try:
+        # FIXED: Query by 'id' column, not 'requirement_id'
+        requirement = db.query(RequirementTrace).filter(
+            RequirementTrace.id == requirement_id,  # Changed this line
+            RequirementTrace.user_id == user_id,
+            RequirementTrace.session_id == session_id
+        ).first()
+        
+        if not requirement:
+            print(f"❌ Requirement not found: id={requirement_id}, user={user_id}, session={session_id}")
+            raise HTTPException(status_code=404, detail="Requirement not found")
+        
+        # Delete the requirement from database
+        req_text = requirement.requirement_text[:50]  # For logging
+        db.delete(requirement)
+        db.commit()
+        
+        print(f"✅ Deleted requirement '{req_text}...' (id={requirement_id}) for user {user_id}")
+        
+        return {
+            "status": "success",
+            "message": f"Requirement deleted successfully"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Delete requirement error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
+
+@app.post("/api/jira/check-duplicate-requirements")
+async def check_duplicate_requirements(data: dict):
+    """Check if requirements already exist before import."""
+    session_id = data.get("session_id")
+    user_id = data.get("user_id")
+    requirement_ids = data.get("requirement_ids", [])
+    
+    if not all([session_id, user_id, requirement_ids]):
+        raise HTTPException(400, "Missing required fields")
+    
+    db = SessionLocal()
+    try:
+        # Check which requirements already exist
+        existing = db.query(RequirementTrace).filter(
+            RequirementTrace.session_id == session_id,
+            RequirementTrace.user_id == user_id,
+            RequirementTrace.requirement_id.in_(requirement_ids)
+        ).all()
+        
+        existing_ids = [req.requirement_id for req in existing]
+        
+        return {
+            "has_duplicates": len(existing_ids) > 0,
+            "existing_requirement_ids": existing_ids,
+            "count": len(existing_ids)
+        }
+    
+    finally:
+        db.close()
+
+
         
 @app.get("/")
 async def root():

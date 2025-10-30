@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy import create_engine, Column, String, DateTime, text, Integer, JSON, Text, Index, Boolean
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY
 from urllib.parse import quote_plus
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -116,4 +116,33 @@ class RequirementTrace(Base):
     # Timestamps
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+class JiraConnection(Base):
+    __tablename__ = "jira_connections"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(255), nullable=False, unique=True, index=True)
+    
+    # Jira instance details
+    jira_cloud_id = Column(String(255))
+    jira_base_url = Column(String(500))
+    
+    # OAuth tokens
+    access_token = Column(String(3000), nullable=False)  # ✅ Changed from 1000 to 3000
+    refresh_token = Column(String(3000))
+    token_expires_at = Column(DateTime)
+    
+    # User info from Jira
+    jira_user_email = Column(String(255))
+    jira_user_display_name = Column(String(255))
+    
+    # Status
+    is_active = Column(Boolean, default=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<JiraConnection(user_id='{self.user_id}', jira_url='{self.jira_base_url}')>"
 
