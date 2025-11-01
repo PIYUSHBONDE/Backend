@@ -33,17 +33,28 @@ def refresh_token_if_needed(connection: JiraConnection) -> bool:
         
         db = SessionLocal()
         try:
-            connection.access_token = tokens["access_token"]
-            if tokens.get("refresh_token"):
-                connection.refresh_token = tokens["refresh_token"]
-            connection.token_expires_at = datetime.utcnow() + timedelta(seconds=tokens.get("expires_in", 3600))
-            db.commit()
-            return True
+            # ✅ FIX: Re-fetch the connection *within this new session*
+            conn_in_session = db.query(JiraConnection).filter(JiraConnection.id == connection.id).first()
+            if conn_in_session:
+                conn_in_session.access_token = tokens["access_token"]
+                if tokens.get("refresh_token"):
+                    conn_in_session.refresh_token = tokens["refresh_token"]
+                conn_in_session.token_expires_at = datetime.utcnow() + timedelta(seconds=tokens.get("expires_in", 3600))
+                db.commit()
+
+                # Also update the original object so the caller has the new token
+                connection.access_token = conn_in_session.access_token
+                connection.refresh_token = conn_in_session.refresh_token
+                connection.token_expires_at = conn_in_session.token_expires_at
+                return True
+            return False
         finally:
             db.close()
-    except:
+    except Exception as e:
+        print(f"❌ Token refresh error: {e}")
         return False
-
+    
+    
 
 def get_valid_connection(user_id: str) -> Optional[JiraConnection]:
     """Get connection with auto-refresh."""
@@ -106,7 +117,7 @@ def fetch_jira_requirements(user_id: str, project_key: str):
         url = f"https://api.atlassian.com/ex/jira/{conn.jira_cloud_id}/rest/api/3/search/jql"
         headers = {"Authorization": f"Bearer {conn.access_token}"}
         
-        jql = f'project = {project_key} AND (issuetype = "Story" OR labels = "Requirement")'
+        jql = f'project = {project_key} AND (issuetype = "Story" OR labels = "Requirement" OR labels = "Requirements")'
         params = {
             "jql": jql,
             "maxResults": 100,
@@ -152,23 +163,55 @@ def create_jira_test_case(user_id: str, project_key: str, test_case: dict, requi
         raise HTTPException(400, "Jira not connected.")
     
     try:
-        # ✅ Correct API endpoint for OAuth 2.0
         url = f"https://api.atlassian.com/ex/jira/{conn.jira_cloud_id}/rest/api/3/issue"
         headers = {
             "Authorization": f"Bearer {conn.access_token}",
             "Content-Type": "application/json"
         }
 
-        # Build description using Atlassian document format
-        steps = "\n".join([f"{i}. {s}" for i, s in enumerate(test_case.get("steps", []), 1)])
-        description_text = f"""Test Case: {test_case.get('id', '')}
+        # Build description using Atlassian Document Format (ADF)
+        steps_nodes = []
+        for i, step in enumerate(test_case.get("steps", []), 1):
+            steps_nodes.append({
+                "type": "listItem",
+                "content": [
+                    {"type": "paragraph", "content": [{"type": "text", "text": step}]}
+                ]
+            })
 
-Steps:
-{steps}
+        description_content = [
+            {
+                "type": "heading", "attrs": {"level": 2},
+                "content": [{"type": "text", "text": "Test Steps"}]
+            },
+            {
+                "type": "orderedList",
+                "content": steps_nodes
+            },
+            {
+                "type": "heading", "attrs": {"level": 2},
+                "content": [{"type": "text", "text": "Expected Result"}]
+            },
+            {
+                "type": "paragraph",
+                "content": [{"type": "text", "text": test_case.get('expected', 'N/A')}]
+            }
+        ]
 
-Expected Result:
-{test_case.get('expected', '')}
-"""
+        # Add Preconditions if they exist
+        if test_case.get("preconditions"):
+            preconditions_nodes = []
+            for pre in test_case.get("preconditions", []):
+                preconditions_nodes.append({
+                    "type": "listItem",
+                    "content": [
+                        {"type": "paragraph", "content": [{"type": "text", "text": pre}]}
+                    ]
+                })
+            
+            description_content.insert(0, {"type": "bulletList", "content": preconditions_nodes})
+            description_content.insert(0, {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Preconditions"}]})
+
 
         payload = {
             "fields": {
@@ -177,18 +220,39 @@ Expected Result:
                 "description": {
                     "type": "doc",
                     "version": 1,
-                    "content": [
-                        {"type": "paragraph", "content": [{"type": "text", "text": description_text}]}
-                    ],
+                    "content": description_content
                 },
                 "issuetype": {"name": "Task"},
-                "labels": ["healthcase-ai", "automated-test"]
-            }
+                "labels": ["healthcase-ai", "testcase"]
+            },
+            # --- THIS IS THE NEW SECTION TO CREATE THE LINK ---
+            "update": {}
         }
+
+        # If a requirement key was provided, add the link
+        if requirement_key:
+            payload["update"] = {
+                "issuelinks": [
+                    {
+                        "add": {
+                            "type": {"name": "Relates"},
+                            "outwardIssue": {"key": requirement_key}
+                        }
+                    }
+                ]
+            }
+        # --- END OF NEW SECTION ---
         
         response = requests.post(url, headers=headers, json=payload)
+        
         if response.status_code == 401:
             raise HTTPException(401, "Unauthorized. Jira token may have expired.")
+        
+        if not response.ok:
+            # Print more detail on failure
+            print("🚨 Jira API error:", response.status_code)
+            print("Request Payload:", payload)
+            print("Response Body:", response.text)
         
         response.raise_for_status()
         created = response.json()

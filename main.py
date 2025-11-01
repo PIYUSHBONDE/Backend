@@ -908,7 +908,7 @@ async def fetch_requirements(data: dict):
     return fetch_jira_requirements(data["user_id"], data["project_key"])
 
 
-@app.post("/api/jira/create-test-case")
+@app.post("/api/jira/create-jira-test-case")
 async def create_test_case_oauth(data: dict):
     """Create test case (OAuth)."""
     return create_jira_test_case(
