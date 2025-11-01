@@ -34,7 +34,7 @@ from models import (
     Document,
     JiraConnection,
     RequirementTrace,
-    
+    ConversationHistory
 )
 
 from jira_service import (
@@ -47,8 +47,7 @@ import secrets
 from urllib.parse import urlencode
 from fastapi.responses import RedirectResponse
 
-from memory_agent.agent import memory_agent
-from workflow_agent.agent import workflow_agent
+from Master_agent.agent import root_agent
 
 # --- 1. SETUP ---
 load_dotenv()
@@ -99,7 +98,7 @@ try:
     session_service = DatabaseSessionService(db_url=engine.url)
     
     runner = Runner(
-        agent=memory_agent,
+        agent=root_agent,
         app_name="HealthCase AI", # Use a consistent app name
         session_service=session_service,
     )
@@ -167,6 +166,22 @@ try:
             CREATE INDEX IF NOT EXISTS idx_req_session ON requirement_traces(session_id);
             CREATE INDEX IF NOT EXISTS idx_req_id_session ON requirement_traces(requirement_id, session_id);
         """))
+        
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS conversation_history (
+                id SERIAL PRIMARY KEY,
+                app_name VARCHAR(255) NOT NULL,
+                user_id VARCHAR(255) NOT NULL,
+                session_id VARCHAR(255) NOT NULL,
+                content JSONB NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_conv_session ON conversation_history(session_id);
+            CREATE INDEX IF NOT EXISTS idx_conv_user ON conversation_history(user_id);
+            CREATE INDEX IF NOT EXISTS idx_conv_app_user ON conversation_history(app_name, user_id);
+        """))
+
         
         conn.execute(text("""
             ALTER TABLE jira_connections 
@@ -402,11 +417,47 @@ async def send_message(session_id: str, req: SendMessageRequest):
         content = types.Content(role="user", parts=[types.Part(text=req.message)])
         final_response_text = ""
         
+        new_conversation = ConversationHistory(
+            app_name=runner.app_name,
+            user_id=req.user_id,
+            session_id=session_id,
+            content={"role": "user", "text": req.message, "aggregated_testcases": [], }
+        )
+        db.add(new_conversation)
+        
         async for event in runner.run_async(
             user_id=req.user_id, session_id=session_id, new_message=content
         ):
-            if event.is_final_response() and event.content.parts and hasattr(event.content.parts[0], "text"):
-                final_response_text = event.content.parts[0].text.strip()
+            
+        #     # if event.actions and event.actions.escalate and event.actions.state_delta and hasattr(event.actions.state_delta, "aggregated_testcases"):
+        #     #     final_response_text = event.actions.state_delta["aggregated_testcases"]
+        #     #     print("Final response received:\n",final_response_text)
+            pass
+        
+        session = await session_service.get_session(
+            app_name=runner.app_name, user_id=req.user_id, session_id=session_id
+        )
+        agent_state = session.state
+
+        # print("Agent final state:", agent_state)
+
+        # Use .get() with default values - much cleaner!
+        final_summary = agent_state.get("final_summary") or "Agent was unable to process the request. Please try again."
+
+        aggregated_testcases = agent_state.get("aggregated_testcases") or [
+            {"testcase_id": "N/A", "Testcase Title": "No test cases generated.", 
+             "testcases":[],"compliance_ids":[]}
+        ]
+        
+        new_conversation = ConversationHistory(
+            app_name=runner.app_name,
+            user_id=req.user_id,
+            session_id=session_id,
+            content={"role": "assistant", "text": final_summary, "aggregated_testcases": aggregated_testcases, }
+        )
+        
+        db.add(new_conversation)
+        db.commit()
         
         # --- NEW: Update our metadata table ---
         updated_title = None
@@ -424,8 +475,9 @@ async def send_message(session_id: str, req: SendMessageRequest):
             
             db.commit()
         
-        return {"role": "assistant", "text": final_response_text, "updated_title": updated_title}
+        return {"role": "assistant", "text": final_summary, "updated_title": updated_title, "aggregated_testcases": aggregated_testcases}
     except Exception as e:
+        print(f"Error listing sessions for user : {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -450,6 +502,7 @@ async def list_sessions(user_id: str):
             
         return {"sessions": formatted_sessions}
     except Exception as e:
+        print(f"Error listing sessions for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
@@ -457,38 +510,44 @@ async def list_sessions(user_id: str):
 @app.get("/sessions/{session_id}/messages")
 async def get_session_messages(session_id: str, user_id: str): # user_id for security
     """Gets all messages for a specific session."""
+    db = SessionLocal()
     try:
-        # 1. First, fetch the session object.
-        session = await session_service.get_session(
-            app_name=runner.app_name, user_id=user_id, session_id=session_id
-        )
-
-        # 2. Access the `.events` attribute, as you correctly discovered.
-        events = session.events
-        messages = []
+        # Fetch all conversation history records
+        conversation_records = db.query(ConversationHistory).filter(
+            ConversationHistory.app_name == runner.app_name,
+            ConversationHistory.session_id == session_id,
+            ConversationHistory.user_id == user_id
+        ).order_by(ConversationHistory.created_at.asc()).all()
         
-        # print(f"Fetched {len(events)} events for session {session_id}")
-        # print(f"Sample event: {events}")
-
-        for event in events:
-            # Check if the event has content and parts
-            if event.content and event.content.parts:
-                part = event.content.parts[0]
-
-                if hasattr(part, "text") and part.text:
-                    messages.append({
-                        "id": event.id,
-                        "role": "user" if event.content.role == "user" else "assistant",
-                        "text": part.text.strip(),
-                        # The timestamp is a float, convert it to an ISO string
-                        "createdAt": datetime.fromtimestamp(event.timestamp, tz=timezone.utc).isoformat()
-                    })
+        if not conversation_records:
+            raise HTTPException(status_code=404, detail="No conversation history found")
         
-        return {"messages": messages}
+        # Convert to list of dictionaries
+        history_list = [
+            {
+                "id": record.id,
+                "app_name": record.app_name,
+                "user_id": record.user_id,
+                "session_id": record.session_id,
+                "content": record.content,
+                "created_at": record.created_at.isoformat() if record.created_at else None
+            }
+            for record in conversation_records
+        ]
+        
+        return {
+            "status": "success",
+            "count": len(history_list),
+            "conversation_history": history_list
+        }
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error fetching messages for session {session_id}: {e}")
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-    
+    finally:
+        db.close()
     
 @app.patch("/sessions/{session_id}/title")
 async def rename_session_title(session_id: str, payload: RenamePayload, user_id: str):

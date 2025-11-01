@@ -1,6 +1,8 @@
 .env
 venv/
 __pycache__/
+gen-ai-hackathon-471718-b72da0ad4da6.json
+myenv/
 
 
 key.pem

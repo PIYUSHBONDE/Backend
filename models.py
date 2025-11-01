@@ -145,4 +145,17 @@ class JiraConnection(Base):
     
     def __repr__(self):
         return f"<JiraConnection(user_id='{self.user_id}', jira_url='{self.jira_base_url}')>"
-
+    
+    
+class ConversationHistory(Base):
+    __tablename__ = 'conversation_history'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    app_name = Column(String(255), nullable=False)
+    user_id = Column(String(255), nullable=False)
+    session_id = Column(String(255), nullable=False)
+    content = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<ConversationHistory(id={self.id}, app_name='{self.app_name}', session_id='{self.session_id}')>"
