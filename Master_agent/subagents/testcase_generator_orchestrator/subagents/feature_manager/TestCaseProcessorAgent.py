@@ -58,16 +58,20 @@ async def summarize_testcases_output(
     summarization_prompt = f"""
 You are a test case report generator. Create a clear, professional summary message for the user based on the generated test cases.
 
+
 **Input Statistics:**
 - Total Test Case Sets: {total_testcase_sets}
 - Total Individual Test Cases: {total_individual_tests}
 - Unique Compliance Rules Covered: {len(all_compliance_ids)}
 
+
 **Test Case Sets Generated:**
 {json.dumps(testcase_summary, indent=2)}
 
+
 **All Compliance Rules:**
 {json.dumps(list(all_compliance_ids), indent=2)}
+
 
 **Instructions:**
 Generate a concise, user-friendly summary message that:
@@ -77,14 +81,19 @@ Generate a concise, user-friendly summary message that:
 4. Highlights compliance rules covered (if any)
 5. Ends with a positive closing statement
 
+
 **Formatting Requirements:**
-- Use markdown formatting for readability
-- Use bullet points for lists
+- Use plain text only, no markdown formatting
+- Do NOT use asterisks (*) or any special characters for formatting
+- Do NOT use bold (**text**) or italic (*text*) markers
+- Use simple line breaks and indentation for structure
 - Keep the tone professional yet friendly
 - Maximum length: 300 words
 - Include emojis sparingly for visual appeal (optional)
 
-Return ONLY the formatted summary message, no additional text.
+
+Return ONLY the formatted summary message as plain text, no additional formatting symbols.
+
 """
     
     try:
@@ -160,12 +169,16 @@ async def parse_testcases_to_json(current_testcases: str, model_name: str = "gem
     parsing_prompt = f"""
 You are a test case parser. Extract the following from the markdown table:
 
+
 1. **Testcase Title**: Generate a concise title summarizing the test cases (max 10 words)
 2. **Test Cases**: Extract each row into format [Sr.No, Test Description, Expected Result]
 3. **Compliance Rules**: Extract all compliance rule IDs from the "Applied Compliance Rules" section
+4. **Source Document**: Extract the source document name from the "Source Requirement Document" section
+
 
 Input:
 {current_testcases}
+
 
 Return ONLY a valid JSON object in this exact format:
 {{
@@ -175,14 +188,17 @@ Return ONLY a valid JSON object in this exact format:
     ["1.", "Test description...", "Expected result..."],
     ["2.", "Another test...", "Expected result..."]
   ],
-  "compliance_ids": ["HIPAA", "ISO 27001", "FDA", "ISO 9001"]
+  "compliance_ids": ["HIPAA", "ISO 27001", "FDA", "ISO 9001", "BRD_Healthcare_App_v1.0.pdf"]
 }}
+
 
 Important:
 - Extract Sr.No exactly as shown (including periods/dots)
 - Keep test descriptions concise but complete
 - Extract only the compliance rule names/IDs (e.g., "HIPAA", "SOC 2", "GDPR Article 32")
+- Include the source requirement document name from the "Source Requirement Document" section in the compliance_ids list
 - Return ONLY the JSON, no explanations
+Ensure the JSON is well-formed and can be parsed without errors.
 """
     
     try:
@@ -275,7 +291,7 @@ class TestCaseProcessorAgent(BaseAgent):
 
         # If the processing list is empty, terminate the loop.
         if not features_to_process:
-            # logger.info(f"Current session state on invocation:\n{state}")
+            logger.info(f"Current session state on invocation:\n{state}")
             logger.info("No features left to process. Terminating loop.")
             yield Event(actions=EventActions(escalate=True), author=self.name)
             return
@@ -298,9 +314,9 @@ class TestCaseProcessorAgent(BaseAgent):
             try:
                 parsed_json = await parse_testcases_to_json(
                     current_testcases, 
-                    model_name="gemini-2.0-flash"  # or "gemini-2.0-flash" for better accuracy
+                    model_name="gemini-2.0-flash"  # or "gemini-2.5-pro" for better accuracy
                 )
-                # logger.info(f"Successfully parsed test cases: {parsed_json['testcase_id']}")
+                logger.info(f"Successfully parsed test cases: {parsed_json['testcase_id']}")
                 
                 aggregated_testcases.append(parsed_json)
                 all_testcases_history.append(parsed_json)
@@ -325,7 +341,7 @@ class TestCaseProcessorAgent(BaseAgent):
         # Check for termination condition *after* processing
         if not features_to_process:
             output_message = "Processed the final feature. Terminating loop."
-            # logger.info(f"Current session state on invocation:\n{state}")
+            logger.info(f"Current session state on invocation:\n{state}")
             logger.info(output_message)
             
             summarize_testcases = await summarize_testcases_output(aggregated_testcases)

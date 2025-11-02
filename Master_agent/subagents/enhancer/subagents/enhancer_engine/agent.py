@@ -9,7 +9,7 @@ from .tools.rag_query import rag_query
 
 
 # Constants
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-2.5-pro"
 
 
 # Define the Initial Testcase Generator Agent

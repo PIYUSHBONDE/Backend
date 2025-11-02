@@ -15,16 +15,6 @@ DEFAULT_TOP_K = 5
 
 from .utils import check_corpus_exists, get_corpus_resource_name
 
-from vertexai import rag
-from google.adk.tools.tool_context import ToolContext
-from google.genai import types
-import os
-from models import SessionLocal, Document
-
-PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
-LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-east4")
-RAG_CORPUS_ID = os.getenv("DATA_STORE_ID")
-RAG_CORPUS_NAME = f"projects/{PROJECT_ID}/locations/{LOCATION}/ragCorpora/{RAG_CORPUS_ID}"
 
 def rag_query(
     corpora: List[str],  # display names; may be empty to use current_corpus
@@ -57,84 +47,6 @@ def rag_query(
                 "results": [],
                 "results_count": 0,
             }
-            
-            
-        
-    # Try to extract session context from kwargs
-    
-        session_id = None
-        user_id = None
-
-        # Try multiple ways to access session info
-        if tool_context:
-            try:
-                # Try accessing from invocation_context
-                if hasattr(tool_context, '_invocation_context'):
-                    inv_ctx = tool_context._invocation_context
-                    if inv_ctx and hasattr(inv_ctx, 'session'):
-                        session = inv_ctx.session
-                        session_id = session.id if hasattr(session, 'id') else None
-                        user_id = session.user_id if hasattr(session, 'user_id') else None
-
-                # Fallback: try state
-                if not user_id and hasattr(tool_context, 'state'):
-                    state = tool_context.state
-                    user_id = state.get('user_id') or state.get('user_name')
-
-                # Another fallback: direct attributes
-                if not session_id and hasattr(tool_context, 'session_id'):
-                    session_id = tool_context.session_id
-                if not user_id and hasattr(tool_context, 'user_id'):
-                    user_id = tool_context.user_id
-
-            except Exception as ctx_error:
-                print(f"⚠️ Error extracting context: {ctx_error}")
-
-        # print(f"❌ Missing context - session_id: {session_id}, user_id: {user_id}")
-
-        if not session_id or not user_id:
-            print(f"❌ Missing context - session_id: {session_id}, user_id: {user_id}")
-            return {
-                "status": "error",
-                "message": "Could not determine session or user context. Please ensure you're in an active session."
-            }
-
-        print(f"🔍 RAG Query - Session: {session_id}, User: {user_id}, Question: {query}")
-
-        # Query PostgreSQL for active documents
-        db = SessionLocal()
-        try:
-            active_docs = db.query(Document).filter(
-                Document.session_id == session_id,
-                Document.user_id == user_id,
-                Document.is_active == True,
-                Document.status == 'active',
-                Document.rag_file_id.isnot(None)
-            ).all()
-
-            if not active_docs:
-                print("⚠️ No active documents found")
-                return {
-                    "status": "no_documents",
-                    "message": "No active documents found in this session. Please upload and activate documents first."
-                }
-
-            rag_file_ids = []
-            for doc in active_docs:
-                # Extract just the file ID from the full resource name
-                file_id = doc.rag_file_id.split('/')[-1] if '/' in doc.rag_file_id else doc.rag_file_id
-                rag_file_ids.append(file_id)
-
-            print(f"✅ Found {len(active_docs)} active documents:")
-            for doc, file_id in zip(active_docs, rag_file_ids):
-                print(f"   - {doc.filename} (File ID: {file_id})")
-        except Exception as db_error:
-            print(f"❌ Database query error: {db_error}")
-            return {
-                "status": "error",
-                "message": f"Database error while retrieving active documents: {db_error}"
-            }
-
 
         # Validate and resolve resource names
         valid_display_names: List[str] = []
@@ -147,7 +59,7 @@ def rag_query(
                 continue
             rn = get_corpus_resource_name(name)
             valid_display_names.append(name)
-            resources.append(rag.RagResource(rag_corpus=rn, rag_file_ids=rag_file_ids))
+            resources.append(rag.RagResource(rag_corpus=rn))
 
         if not resources:
             return {
@@ -158,7 +70,7 @@ def rag_query(
                 "results": [],
                 "results_count": 0,
             }
-            
+
         rag_retrieval_config = rag.RagRetrievalConfig(
             top_k=DEFAULT_TOP_K,
             filter=rag.Filter(vector_distance_threshold=DEFAULT_DISTANCE_THRESHOLD),
