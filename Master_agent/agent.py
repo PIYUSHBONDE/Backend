@@ -37,7 +37,7 @@ def clear_session_state(tool_context: ToolContext) -> dict:
 
 root_agent = Agent(
     name="MasterRoutingAgent",
-    model="gemini-2.5-pro",
+    model="gemini-2.0-flash",
     description="Manager agent",
     tools = [clear_session_state],
     instruction="""

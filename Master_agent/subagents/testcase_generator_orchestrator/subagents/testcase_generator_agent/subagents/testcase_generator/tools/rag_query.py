@@ -147,7 +147,8 @@ def rag_query(
                 continue
             rn = get_corpus_resource_name(name)
             valid_display_names.append(name)
-            resources.append(rag.RagResource(rag_corpus=rn, rag_file_ids=rag_file_ids))
+            if(name=="requirements"): resources.append(rag.RagResource(rag_corpus=rn, rag_file_ids=rag_file_ids))
+            else : resources.append(rag.RagResource(rag_corpus=rn))
 
         if not resources:
             return {

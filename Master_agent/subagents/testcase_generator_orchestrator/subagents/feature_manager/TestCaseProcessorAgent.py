@@ -298,7 +298,7 @@ class TestCaseProcessorAgent(BaseAgent):
             try:
                 parsed_json = await parse_testcases_to_json(
                     current_testcases, 
-                    model_name="gemini-2.0-flash"  # or "gemini-2.5-pro" for better accuracy
+                    model_name="gemini-2.0-flash"  # or "gemini-2.0-flash" for better accuracy
                 )
                 # logger.info(f"Successfully parsed test cases: {parsed_json['testcase_id']}")
                 
