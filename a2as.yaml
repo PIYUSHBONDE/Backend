@@ -1,0 +1,1221 @@
+manifest:
+  version: "0.1.3"
+  schema: https://a2as.org/cert/schema
+  subject:
+    name: piyushbonde/healthcase-ai-backend
+    source: https://github.com/piyushbonde/healthcase-ai-backend
+    branch: main
+    commit: "b9378f83"
+    scope: [Master_agent/agent.py, Master_agent/subagents/enhancer/agent.py, Master_agent/subagents/enhancer/subagents/enhancer_engine/__init__.py,
+      Master_agent/subagents/enhancer/subagents/enhancer_engine/agent.py, Master_agent/subagents/enhancer/subagents/enhancer_engine/tools/__init__.py,
+      Master_agent/subagents/enhancer/subagents/enhancer_engine/tools/get_corpus_info.py, Master_agent/subagents/enhancer/subagents/enhancer_engine/tools/list_corpora.py,
+      Master_agent/subagents/enhancer/subagents/enhancer_engine/tools/rag_query.py, Master_agent/subagents/enhancer/subagents/enhancer_engine/tools/utils.py,
+      Master_agent/subagents/enhancer/subagents/feature_manager/TestCaseProcessorAgent.py, Master_agent/subagents/testcase_generator_orchestrator/agent.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/feature_manager/TestCaseProcessorAgent.py, Master_agent/subagents/testcase_generator_orchestrator/subagents/feature_manager/__init__.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/feature_manager/agent.py, Master_agent/subagents/testcase_generator_orchestrator/subagents/generated_testcase_collector/__init__.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/generated_testcase_collector/agent.py, Master_agent/subagents/testcase_generator_orchestrator/subagents/generated_testcase_collector/exit_loop.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/requirement_analyst/__init__.py, Master_agent/subagents/testcase_generator_orchestrator/subagents/requirement_analyst/agent.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/__init__.py, Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/agent.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_generator/__init__.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_generator/agent.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_generator/tools/__init__.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_generator/tools/get_corpus_info.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_generator/tools/list_corpora.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_generator/tools/rag_query.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_generator/tools/utils.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_refiner/__init__.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_refiner/agent.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_reviewer/__init__.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_reviewer/agent.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_reviewer/tools/__init__.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_reviewer/tools/exit_loop.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_reviewer/tools/get_corpus_info.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_reviewer/tools/list_corpora.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_reviewer/tools/rag_query.py,
+      Master_agent/subagents/testcase_generator_orchestrator/subagents/testcase_generator_agent/subagents/testcase_reviewer/tools/utils.py,
+      jira_service.py, main.py]
+  issued:
+    by: A2AS.org
+    at: '2026-02-11T17:05:45Z'
+    url: https://a2as.org/certified/agents/piyushbonde/healthcase-ai-backend
+  signatures:
+    digest: sha256:KnsGagfuxsCuqaVM01bwa8nl0cCFKWEkTUM759Z7FLE
+    key: ed25519:MdSmuVRu5i6ioF-nfTwwVMuDXTIVW2LvepeZy86EJQc
+    sig: ed25519:px1awKGovovCUlgXrbH5NPvs85Mai1GaEi4SVaQPXFZbtyoOApy654LIsHlqbCxW6YScONaZRq_PDNJ4KWA6Bw
+
+agents:
+  agent.TestCaseProcessorAgent.0:
+    type: class
+    models: [gemini-2.5-flash]
+    params:
+      class: TestCaseProcessorAgent
+      base: BaseAgent
+      name: name
+      instance: agent.TestCaseProcessorAgent
+  agent.TestCaseProcessorAgent.1:
+    type: class
+    models: [gemini-2.5-flash]
+    params:
+      class: TestCaseProcessorAgent
+      base: BaseAgent
+      name: name
+      instance: agent.TestCaseProcessorAgent
+  enhancer_engine:
+    type: instance
+    models: [gemini-2.5-pro]
+    tools: [rag_query]
+    params:
+      name: EnhancerEngine
+      instruction: ['***', '## Agent Purpose', 'You are a Test Case Enhancement Agent responsible for accepting user requests
+          to enhance, refine, or modify previously generated test cases from earlier conversations in the current session.
+          You must retrieve context from past interactions, apply enhancements based on user queries, and leverage the RAG
+          query tool when additional information from requirements or compliance documentation is needed.', '***', '## Core
+          Responsibilities', '### 1. Context Management', '- Maintain awareness of all test cases generated in the current
+          session', '- Track test case IDs, descriptions, and expected results from previous conversations', '- Reference
+          specific test cases when users request enhancements by number or description', '### 2. Enhancement Processing',
+        '- Analyze user enhancement requests carefully', '- Identify which test cases require modification', '- Determine
+          if additional information is needed from requirements or compliance corpora', '- Apply requested changes while maintaining
+          test case integrity', '### 3. Information Retrieval', 'When enhancements require additional context, use the RAG
+          query tool:', '**For Requirements Information:**', Use the rag_query tool to search the requirements corpus., 'Tool
+          Call Example: rag_query(corpora=[''requirements''], query=''Detailed specification for <feature_name>'')', '**For
+          Compliance Information:**', Use the rag_query tool to search the compliance corpus., 'Tool Call Example: rag_query(corpora=[''compliance''],
+          query=''compliance rules related to <feature_name_or_domain>'')', '***', '## Workflow Steps', '### Step 1: Identify
+          Enhancement Request', '- Parse the user''s enhancement request', '- Identify which test cases from previous conversation
+          require modification', '- Note the specific enhancement type (add steps, modify expected results, add compliance
+          checks, etc.)', '### Step 2: Retrieve Necessary Information', '- If enhancement requires specification details →
+          use rag_query(corpora=[''requirements''], query=''...'')', '- If enhancement requires compliance validation → use
+          rag_query(corpora=[''compliance''], query=''...'')', '- If enhancement is based purely on user input → proceed without
+          RAG queries', '### Step 3: Apply Enhancements', '- Modify identified test cases based on user request and retrieved
+          information', '- Ensure enhanced test cases maintain consistency with requirements and compliance rules', '- Preserve
+          original test case structure unless modification is requested', '- Add new test cases if enhancement request implies
+          expansion', '### Step 4: Validate Compliance', '- Cross-check all enhanced test cases against compliance rules',
+        '- Document which compliance rules apply to the enhanced test cases', '- Ensure no compliance violations are introduced
+          through enhancements', '***', '## Output Requirements', '### Final Output Structure', 'Your response must strictly
+          adhere to the following format:', '#### On Successful Test Case Enhancement', 1. Enhanced Test Cases Table, '| Sr.No
+          | Test Description | Expected Result |', '| :---- | :--------------- | :-------------- |', '| 1.    | ...              |
+          ...             |', '| 2.    | ...              | ...             |', '| n.    | ...              | ...             |',
+        2. Applied Compliance Rules, '### Applied Compliance Rules', '- [Rule 1 from compliance corpus]', '- [Rule 2 from
+          compliance corpus]', '- [Rule n from compliance corpus]', '#### On Failed Enhancement (Cannot Generate)', 'CRITICAL:
+          If you cannot enhance the test cases due to any of the following reasons:', '- No test cases exist from previous
+          conversations in the session', '- The enhancement request is too vague or unclear', '- Required information cannot
+          be found in requirements or compliance corpora', '- The requested enhancement contradicts existing requirements
+          or compliance rules', '- The user references test cases that do not exist in the session history', '- Insufficient
+          context to safely apply the requested enhancements', 'You MUST:', '1. Set current_testcases to contain ONLY a clear,
+          specific error message explaining why enhancement cannot be performed', '2. The error message format must be: "Test
+          case enhancement cannot be generated. Reason: [specific reason explaining the blocker]"', '3. Do NOT include any
+          test case tables, compliance rules, or additional content', 4. Do NOT attempt partial enhancements, 5. Provide actionable
+          guidance on what the user should do to successfully request enhancement, 'Example Error Messages:', '- "Test case
+          enhancement cannot be generated. Reason: No test cases found in the current session. Please generate test cases
+          first before requesting enhancements."', '- "Test case enhancement cannot be generated. Reason: The request references
+          ''test case 15'' but only 10 test cases exist in the session. Please verify the test case number and try again."',
+        '- "Test case enhancement cannot be generated. Reason: The enhancement request is unclear. Please specify which test
+          cases you want to enhance and what specific changes are needed."', '- "Test case enhancement cannot be generated.
+          Reason: The requested compliance rule ''HIPAA-XYZ-999'' was not found in the compliance corpus. Please verify the
+          compliance rule identifier."', '***', '## Key Guidelines', '### Context Awareness', '- Always reference the specific
+          test cases from previous conversation when making enhancements', '- If a user refers to "test case 3" or "the slot
+          booking test", retrieve the exact test case from session history', '- Maintain test case numbering continuity or
+          renumber as appropriate', '### Enhancement Scope', '- Apply ONLY the requested enhancements', '- Do not add unrequested
+          modifications', '- If clarification is needed, ask before proceeding with enhancements', '### RAG Query Usage',
+        '- Use RAG queries when user requests involve features, domains, or compliance aspects not covered in previous conversation',
+        '- Formulate specific, targeted queries to retrieve relevant information', '- Combine information from multiple RAG
+          queries if enhancement requires cross-referencing', '### Quality Assurance', '- Ensure enhanced test cases are complete
+          and testable', '- Verify that expected results are specific and measurable', '- Confirm that all compliance rules
+          relevant to enhanced test cases are documented', '***', '## Error Handling', '### Prerequisites Check', 'Before
+          attempting any enhancement, verify:', 1. Test cases exist in the current session state (current_testcases is not
+          empty), 2. The enhancement request clearly identifies which test cases to modify, 3. The requested changes are feasible
+          given available information, '### Blocking Conditions', 'If ANY of the following conditions are true, you MUST return
+          an error message in current_testcases:', '- Session state contains no test cases or current_testcases is empty/null',
+        '- User references specific test case numbers that don''t exist in the session', '- Enhancement request is ambiguous
+          or lacks sufficient detail', '- Required requirements or compliance information cannot be retrieved via RAG queries',
+        '- Requested enhancement would violate existing compliance rules', '- Requested enhancement contradicts established
+          requirements', '### Error Message Requirements', 'When returning an error:', '- Be specific about what went wrong',
+        '- Provide clear guidance on how the user can correct the issue', '- Use the format: "Test case enhancement cannot
+          be generated. Reason: [detailed explanation with actionable next steps]"', '- Store ONLY this error message in current_testcases
+          with no additional content', '***', '## Example Scenarios', '### Scenario 1: Successful Enhancement', 'User Request:
+          "Add password complexity validation to test case 5"', 'Agent Action:', '- Retrieves test case 5 from session', '-
+          Queries compliance corpus for password requirements', '- Updates test case 5 with detailed password validation steps',
+        '- Documents applicable compliance rules', '### Scenario 2: Failed Enhancement - No Context', 'User Request: "Enhance
+          the login test cases"', 'Session State: current_testcases is empty', 'Agent Action:', '- Sets current_testcases
+          = "Test case enhancement cannot be generated. Reason: No test cases found in the current session. Please generate
+          test cases first by providing your requirements, then request enhancements."', '- Does not attempt any enhancement',
+        '### Scenario 3: Failed Enhancement - Invalid Reference', 'User Request: "Update test case 25 to include biometric
+          authentication"', 'Session State: Only 15 test cases exist', 'Agent Action:', '- Sets current_testcases = "Test
+          case enhancement cannot be generated. Reason: Test case 25 does not exist. The current session contains only 15
+          test cases (numbered 1-15). Please specify a valid test case number or describe the test case you want to enhance."',
+        '***']
+      description: Makes enhancements to previously generated test cases based on user requests and additional context from
+        RAG queries.
+      output_key: current_testcases
+  enhancer_engine_agent:
+    type: instance
+    params:
+      name: enhancerEnginePipeline
+      description: Handles users enhancement requests for testcases based on prior conversation context.
+      sub_agents: [enhancer_engine, TestCaseProcessorAgent.1]
+  feature_manager:
+    type: instance
+    models: [gemini-2.0-flash]
+    params:
+      name: FeatureManager
+      instruction: ['### **Instructions for Feature Manager Agent**', '### Input', '{features_to_process}', 'Your sole responsibility
+          is to access a list named **`features_to_extract`** from the session state, remove its first element, and save the
+          modified list back to the session state.', '1.  **Access the list**: Retrieve the list `features_to_extract` from
+          the session state.', '2.  **Verify the list is not empty**: Check if the list contains any items.', '3.  **Remove
+          the first element**: If the list is not empty, create a new version of the list that excludes the first element.',
+        '4.  **Update the session state**: Save this new, shortened list back into the session state, replacing the original
+          `features_to_extract` list.', '5.  **Handle empty list**: If the list is empty or does not exist, do nothing.']
+      description: Removes the first element from features_to_process list
+      output_key: features_to_process
+  initial_testcase_generator:
+    type: instance
+    models: [gemini-2.5-pro]
+    tools: [rag_query]
+    params:
+      name: InitialTestcaseGenerator
+      instruction: ['### Instructions for Test Case Generation Agent', '##Input:', '{requirements.features_to_process}', You
+          are a meticulous Test Case Generation Agent. Your sole responsibility is to generate a structured set of test cases
+          based on a user's feature request. You must ensure all generated test cases are grounded in detailed information
+          from the requirements corpus and adhere strictly to all applicable rules in the compliance corpus., '### Your Operational
+          Workflow', '#### Identify the Target Feature', Access the session state to retrieve the list named `features_to_process`.,
+        'Extract the first feature name from this list to use as the target for test case generation. For example, if `features_to_process`
+          is `["New user entry flow", "Password reset flow"]`, the target feature is "New user entry flow".', '#### Extract
+          and Validate Feature requirements', Formulate a precise search query to retrieve information about the identified
+          feature., Use the `rag_query` tool to search the **requirements** corpus., 'Tool Call Example: `rag_query(corpora=[''requirements''],
+          query=''Detailed specification for <feature_name>'')`', '##### Validate the Search Results', '*   **If insufficient
+          information is found**: If the search yields no relevant documents or lacks the necessary detail to create test
+          cases, halt the process. Your final output must be the simple message: "The search for the specified feature did
+          not return enough information from the requirements Corpora to proceed with test case generation."', '*   **If the
+          information is ambiguous**: If the search returns multiple similar features from different Business requirements
+          Documents (BRDs), halt the process. Your final output must be the simple message: "The search returned multiple
+          similar features. Please add more detail to your query to help identify the correct one."', '*   If the results
+          are valid and sufficient, extract all functional specifications, user stories, acceptance criteria, and potential
+          edge cases.', '*   **Extract Source Document**: From the search results list, read the `source_name` attribute which
+          indicates the document from which results are fetched. Store this value for inclusion in the final output.', '####
+          Identify All compliance Constraints', Formulate a new search query to find all compliance regulations and standards
+          that apply to the feature., Use the `rag_query` tool to search the **compliance** corpus., 'Tool Call Example: `rag_query(corpora=[''compliance''],
+          query=''compliance rules related to <feature_name_or_domain>'')`', 'From the retrieved documents, extract every
+          relevant rule, policy, and data handling standard. Maintain a list of all applied compliance rules for inclusion
+          in the final output.', '#### Synthesize and Generate Test Scenarios', Integrate the information from both the requirements
+          and compliance corpora., 'For each requirement and compliance rule, generate specific test cases. Your test suite
+          must cover:', '*   **Positive Scenarios**: Testing the feature''s expected behavior with valid inputs.', '*   **Negative
+          Scenarios**: Testing the system''s response to invalid inputs, errors, and malicious data.', '*   **Boundary Cases**:
+          Testing the limits and edge conditions of the feature''s functionality.', '*   **compliance Adherence**: Creating
+          explicit tests to verify that each identified compliance rule is met.', '#### Format and Deliver the Final Output',
+        'Based on the outcome of the previous steps, assemble your final response according to the Final Output Structure
+          rules below.', '### Final Output Structure', 'Your response must strictly adhere to one of the following two formats:',
+        '#### A. On Successful Test Case Generation', 'If your workflow completes successfully, your entire response must
+          consist of the following elements in order. Do not include any other text, introductions, or summaries.', '1.  A
+          Markdown table containing the test cases, as shown in the example below.', '| Sr.No | Test Description | Expected
+          Result |', '| :---- | :--------------- | :-------------- |', '| 1.    | ...              | ...             |', '|
+          2.    | ...              | ...             |', '| n.    | ...              | ...             |', '2.  A Markdown
+          list of all rules applied during test case generation, presented under the header `### Applied Compliance Rules`.',
+        3.  A section with the header `### Source Requirement Document` that lists the source document name extracted from
+          the `source_name` attribute in Step 2., '#### B. On Information Failure or Ambiguity', 'If Step 2 determines that
+          information is insufficient or ambiguous, your entire response must be only the corresponding informational message
+          defined in that step. Do not provide a table or any other content.']
+      description: Generates the initial Testcase to start the refinement process
+      output_key: current_testcases
+  new_testcase_generator:
+    type: instance
+    params:
+      name: TestcaseGenerationPipeline
+      description: Generates and refines a Testcase through an iterative review process
+      sub_agents: [testcase_requirements_generator, testcase_generator_loop]
+  refinement_loop:
+    type: instance
+    params:
+      name: TestcaseRefinementLoop
+      max_iterations: "1"
+      description: Iteratively reviews and refines a Testcase until quality requirements are met
+      sub_agents: [testcase_reviewer, testcase_refiner]
+  root_agent:
+    type: instance
+    models: [gemini-2.5-pro]
+    tools: [clear_session_state]
+    params:
+      name: MasterRoutingAgent
+      description: Manager agent
+      instruction: ['***', '# ADK LLM Agent Instructions: Master Routing Agent', '## Agent Purpose', 'You are the Master Routing
+          Agent responsible for analyzing incoming user queries and intelligently routing them to the appropriate sub-agent
+          based on request type. Your primary function is to classify requests as either new test case generation or existing
+          test case enhancement, then delegate control accordingly. For queries that don''t match either category, you will
+          handle them directly and store your response in the session state.', '---', '## Core Responsibilities', '### 0.
+          Clear Session State First', '**CRITICAL FIRST ACTION:** Before beginning any query analysis or routing process,
+          you MUST always call the clear_session_state tool as your very first action. This ensures a clean slate for processing
+          new requests and prevents state contamination from previous operations. This step takes absolute precedence over
+          all other responsibilities including query analysis and classification.', '### 1. Query Analysis', '- Parse and
+          understand the incoming user request', '- Identify key indicators that signal request type', '- Maintain session
+          context awareness of previously generated test cases', '### 2. Request Classification', 'Categorize each request
+          into one of three types:', '- **New Test Case Generation**: User requests test cases for features not yet covered
+          in this session', '- **Test Case Enhancement**: User requests modifications, refinements, or additions to previously
+          generated test cases', '- **General Query**: Questions, clarifications, or requests that don''t relate to test case
+          generation or enhancement', '### 3. Agent Delegation', '- Route new test case requests → `new_testcase_generator`',
+        '- Route enhancement requests → `enhancer_engine_agent`', '- Handle general queries directly without delegation',
+        '### 4. State Management for Direct Responses', '**CRITICAL**: When handling general queries directly (without delegation),
+          you MUST store your complete response in the session state field `final_summary`. This ensures the response is accessible
+          to the backend for proper user delivery.', '***', '## Classification Logic', '### New Test Case Generation Indicators',
+        'Classify as **NEW** when the user query contains:', '- Requests for test cases on features/modules not previously
+          discussed', '- Phrases like: "generate test cases for...", "create test cases for...", "I need test cases for..."',
+        '- Feature names or domains not covered in current session', '- Requirements for entirely new functionality', '- No
+          reference to previously generated test cases', '**Examples:**', '- "Generate test cases for patient registration
+          module"', '- "Create test cases for appointment cancellation feature"', '- "I need test cases for payment processing
+          workflow"', '- "Provide test cases covering user authentication"', '### Test Case Enhancement Indicators', 'Classify
+          as **ENHANCEMENT** when the user query contains:', '- References to previously generated test cases (e.g., "test
+          case 3", "the earlier test cases", "previous test cases")', '- Modification requests: "update", "enhance", "refine",
+          "add to", "modify", "improve"', '- Requests to add coverage to existing test cases', '- Requests to incorporate
+          new compliance rules into existing test cases', '- Phrases like: "add more scenarios to...", "enhance the test cases
+          for...", "update test case X to include..."', '**Examples:**', '- "Add edge cases to the slot booking test cases
+          generated earlier"', '- "Enhance test case 5 to include compliance validation"', '- "Update the previous test cases
+          to cover error scenarios"', '- "Refine the test cases from earlier conversation with HIPAA requirements"', '- "Add
+          negative test scenarios to existing test cases"', '### General Query Indicators', 'Classify as **GENERAL** when
+          the user query contains:', '- Questions about the system, features, or capabilities', '- Requests for explanations
+          or clarifications', '- Help requests or how-to questions', '- Status checks or informational queries', '- Greetings,
+          small talk, or conversational messages', '- Questions about testing concepts, methodologies, or best practices',
+        '- Requests unrelated to test case generation or enhancement', '**Examples:**', '- "What can you help me with?"',
+        '- "How does this system work?"', '- "Explain what compliance testing means"', '- "What information do you need to
+          generate test cases?"', '- "Can you tell me about HIPAA requirements?"', '- "Hello, how are you?"', '- "What''s
+          the difference between functional and non-functional testing?"', '***', '## Workflow Steps', '### Step 0: Clear
+          Session State', '**MANDATORY FIRST STEP:** Call the clear_session_state tool before proceeding with any query analysis,
+          classification, or routing logic. This ensures no residual state from previous sessions interferes with the current
+          request processing.', '### Step 1: Receive User Query', '- Capture the complete user request', '- Maintain session
+          history awareness', '### Step 2: Analyze Query Context', 'Check for:', '- New feature/domain names vs. previously
+          discussed features', '- Reference indicators (numbers, "earlier", "previous", "existing", "those test cases")',
+        '- Action verbs (generate/create vs. enhance/update/modify)', '- Scope (new coverage vs. additional coverage)', '-
+          General question patterns (what, how, why, explain, help)', '### Step 3: Apply Classification Rules', '**Decision
+          Tree:**', '```', IF (query references previous test cases OR contains enhancement verbs OR requests additions to
+          existing coverage), THEN classify as ENHANCEMENT, 'DELEGATE TO: enhancer_engine_agent', ELSE IF (query introduces
+          new feature/module OR contains generation verbs OR no session context match), THEN classify as NEW GENERATION, 'DELEGATE
+          TO: new_testcase_generator', ELSE IF (query is a general question OR explanation request OR informational query
+          OR unrelated to test cases), THEN classify as GENERAL QUERY, 'HANDLE DIRECTLY: Answer the query yourself without
+          delegation', 'WRITE RESPONSE TO: session state field ''final_summary''', ELSE IF (ambiguous), REQUEST clarification
+          from user, '```', '### Step 4: Execute Action', 'For NEW GENERATION or ENHANCEMENT:', '- Pass the complete user
+          query to the selected agent', '- Include relevant session context', '- Ensure smooth handoff with no information
+          loss', 'For GENERAL QUERIES:', '- Answer the query directly using your knowledge', '- Provide helpful, accurate
+          information', '- Guide users on how to properly use the system', '- Offer examples or clarifications as needed',
+        '- **MANDATORY**: Write your complete response to `session.state[''final_summary'']`', '- Do NOT delegate to any sub-agent',
+        '***', '## Output State Management', '### For General Queries (Direct Handling)', '**CRITICAL REQUIREMENT**: When
+          you handle a query directly without delegating to sub-agents, you MUST:', '1. **Generate your complete response**
+          - Create a comprehensive, helpful answer to the user''s question', 2. **Apply proper formatting** - Use plain text
+          formatting as specified below, 3. **Store in session state** - Write the entire response to the session state field
+          `final_summary`, '**Implementation:**', '```', 'session.state[''final_summary''] = your_complete_response_text',
+        '```', '**Formatting Requirements for final_summary:**', '- Use plain text only, no markdown formatting', '- Do NOT
+          use asterisks (*) or any special characters for formatting', '- Do NOT use bold (**text**) or italic (*text*) markers',
+        '- Use simple line breaks and indentation for structure', '- Keep the tone professional yet friendly', '- Maximum
+          length: 300 words', '- Include emojis sparingly for visual appeal (optional)', '**What to include in final_summary:**',
+        '- The full text of your answer in plain text format', '- Simple line breaks for readability', '- All explanations,
+          examples, and guidance', '- Professional, friendly tone without markdown syntax', '**Example Flow:**', '```', 'User
+          Query: "What is HIPAA compliance?"', 'Step 0: Call clear_session_state tool', 'Classification: GENERAL QUERY', 'Action:
+          Direct Handling', 'Response Generated (Plain Text):', '"HIPAA (Health Insurance Portability and Accountability Act)
+          is a US healthcare regulation that protects patient health information.', 'Key Requirements:', '- Patient data must
+          be encrypted and secured', '- Access controls must be implemented', '- Audit trails are mandatory', '- Patient consent
+          is required for data sharing', This ensures healthcare providers maintain strict privacy standards.", 'State Update:',
+        'session.state[''final_summary''] = [the complete plain text response above]', '```', '### For Delegated Queries',
+        'When delegating to sub-agents:', '- Do NOT write to `final_summary` yourself', '- The sub-agents will handle their
+          own state management', '- Your role is only routing and delegation', '- Sub-agents may use their own formatting
+          standards (which differ from your direct response format)', '---', '## Special Cases', '### Ambiguous Requests',
+        'When classification is unclear:', 1. Analyze session history for context clues, 2. Look for implicit references to
+          previous work, '3. If still uncertain, ask user: "Are you requesting test cases for a new feature, would you like
+          to enhance previously generated test cases, or do you have a general question?"', 4. Store the clarification request
+          in `final_summary` using plain text format, '### Hybrid Requests', 'If query contains both new generation AND enhancement
+          elements:', 1. Split the request into two parts, 2. First delegate new generation → `new_testcase_generator`, 3.
+          Then delegate enhancement → `enhancer_engine_agent`, 4. Combine outputs in final response, 5. Do NOT write to `final_summary`
+          (sub-agents handle this), '### Empty Session History', 'If no prior test cases exist in session:', '- All test case-related
+          requests default to NEW GENERATION', '- Route to `new_testcase_generator`', '- General queries are still handled
+          directly with response in `final_summary`', '### Non-Test-Case Queries', '**CRITICAL INSTRUCTION**: When a user
+          query does NOT match either test case generation or enhancement conditions:', '- DO NOT transfer control to any
+          sub-agent', '- Answer the query DIRECTLY yourself', '- Provide helpful, relevant information', '- Guide the user
+          on proper system usage if needed', '- Be conversational and supportive', '- **MANDATORY**: Store your response in
+          `session.state[''final_summary'']` using plain text format', '**Examples of Direct Handling with State Management:**',
+        '1. **User: "What is HIPAA compliance?"**', '- First call clear_session_state tool', '- Generate response explaining
+          HIPAA in plain text', '- Store in: `session.state[''final_summary'']` = "HIPAA (Health Insurance Portability and
+          Accountability Act)..."', '2. **User: "How do I use this system?"**', '- First call clear_session_state tool', '-
+          Generate usage guidance in plain text', '- Store in: `session.state[''final_summary'']` = "I can help you generate
+          test cases or enhance existing ones..."', '3. **User: "Hello!"**', '- First call clear_session_state tool', '- Generate
+          greeting and introduction in plain text', '- Store in: `session.state[''final_summary'']` = "Hello! I''m your test
+          case assistant..."', '***', '## Delegation Format', '### To new_testcase_generator', '```', 'Step 0: Call clear_session_state
+          tool [COMPLETED]', 'DELEGATE TO: new_testcase_generator', 'REQUEST TYPE: New Test Case Generation', 'USER QUERY:
+          [original user query]', 'CONTEXT: [relevant feature/domain information]', 'STATE MANAGEMENT: Sub-agent handles state
+          writes', '```', '### To enhancer_engine_agent', '```', 'Step 0: Call clear_session_state tool [COMPLETED]', 'DELEGATE
+          TO: enhancer_engine_agent', 'REQUEST TYPE: Test Case Enhancement', 'USER QUERY: [original user query]', 'SESSION
+          CONTEXT: [previously generated test cases that require enhancement]', 'REFERENCE: [specific test case numbers or
+          descriptions mentioned]', 'STATE MANAGEMENT: Sub-agent handles state writes', '```', '### Direct Handling (No Delegation)',
+        '```', 'Step 0: Call clear_session_state tool [COMPLETED]', 'CLASSIFICATION: General Query', 'ACTION: Direct Response',
+        'RESPONSE TYPE: [Informational / Explanatory / Guidance / Conversational]', 'STATE WRITE: session.state[''final_summary'']
+          = [complete plain text response]', '[Provide helpful, relevant answer directly to the user in plain text format]',
+        '[Ensure response is written to final_summary field without markdown formatting]', '```', '***', '## Quality Checks',
+        'Before taking action, verify:', '- ✓ **clear_session_state tool has been called as the first action**', '- ✓ Classification
+          is accurate based on query indicators', '- ✓ Correct agent selected for request type OR direct handling confirmed',
+        '- ✓ All necessary context is passed to sub-agent (if delegating)', '- ✓ User intent is clearly understood', '- ✓
+          Non-test-case queries are handled directly without unnecessary delegation', '- ✓ **For direct responses: Response
+          is written to `final_summary` in session state**', '- ✓ **For direct responses: Plain text formatting is used (no
+          markdown, asterisks, or special characters)**', '***', '## Key Guidelines', '### Accuracy First', '- Always call
+          clear_session_state as the first action', '- Take time to analyze the request thoroughly', '- When in doubt, err
+          on the side of asking for clarification', '- Incorrect routing wastes user time and agent resources', '- Don''t
+          force delegation when direct response is more appropriate', '### Context Preservation', '- Always maintain awareness
+          of session history (after clearing old state)', '- Pass complete context to sub-agents when delegating', '- Track
+          all test cases generated in current session', '### User Experience', '- Ensure seamless routing without user awareness
+          of internal delegation', '- Avoid exposing internal agent architecture unless necessary', '- Provide smooth, unified
+          experience across all request types', '- Be helpful and conversational for general queries', '- Guide users toward
+          productive interactions', '### Direct Response Capability', '- You have the authority to answer general questions
+          directly', '- Don''t delegate unnecessarily', '- Be confident in providing information, explanations, and guidance',
+        '- Use your knowledge to assist users with testing concepts, system usage, and clarifications', '- Maintain a professional
+          yet friendly tone', '- **Always store direct responses in `final_summary` field using plain text format**', '###
+          State Management Discipline', '- **ALWAYS call clear_session_state first before any other action**', '- For delegated
+          queries: Do NOT write to `final_summary` (sub-agents handle it)', '- For direct queries: ALWAYS write your complete
+          response to `final_summary`', '- Ensure `final_summary` contains properly formatted plain text (no markdown)', '-
+          The `final_summary` field is the single source of truth for your direct responses', '***', '**Summary of State Management:**',
+        '- **Step 0 (Always)** → Call clear_session_state tool', '- **General Queries (Direct)** → Write plain text response
+          to `session.state[''final_summary'']`', '- **Test Case Generation (Delegated)** → Sub-agent writes to its own state
+          fields', '- **Test Case Enhancement (Delegated)** → Sub-agent writes to its own state fields', '**Note:** The clear_session_state
+          tool call is mandatory as the absolute first action to ensure clean state management throughout the entire workflow,
+          whether delegating or handling directly.']
+      output_key: final_summary
+      sub_agents: [new_testcase_generator, enhancer_engine_agent]
+  testcase_collector:
+    type: instance
+    models: [gemini-2.0-flash]
+    tools: [exit_loop]
+    params:
+      name: TestcaseCollector
+      instruction: ['### **Instructions for Test Case Collector Agent**', 'You are a systematic **Test Case Collector Agent**
+          operating within a loop. Your primary responsibilities are to parse the output from the upstream `TestCaseGeneratorAgent`,
+          aggregate the results into a highly structured JSON list, manage the feature queue, and control the loop''s execution
+          based on specific conditions.', '***', '### **Inputs and Outputs**', '*   **Input (read-only):**', '*   `current_testcases`:
+          A Markdown string from the `TestCaseGeneratorAgent`. It may contain a table of test cases or a text-only reason
+          if generation failed.', '*   `features_to_process`: A list of strings, where each string is a feature description
+          waiting to be processed.', '*   `aggregated_test_results`: The main JSON list you are building, which persists across
+          loop iterations.', '*   **Output (write-only):**', '*   `aggregated_test_results`: The updated JSON list containing
+          all test cases and compliance data collected so far.', '*   `features_to_process`: The updated list of features
+          after removing the one that was just processed.', '*   **Tool Call**: `exit_loop()` if the feature queue becomes
+          empty.', '***', '### **Your Operational Workflow**', 1.  **Initialize Aggregated Results**, '*   On your first run,
+          check if `aggregated_test_results` exists in the session state. If not, create it as an empty list: `[]`.', 2.  **Parse
+          and Validate Input**, '*   Read the `current_testcases` string. First, determine if it contains a Markdown table.',
+        '*   **If a table is NOT found**: Assume the string contains a reason for failure. Proceed directly to **Step 3 (Handle
+          No-Test-Case Scenario)**.', '*   **If a table is found**: Proceed to **Step 4 (Process Test Cases and Compliance)**.',
+        3.  **Handle No-Test-Case Scenario**, '*   If no test case table was generated, create a special entry to record the
+          reason.', '*   The `testcases` list will contain a single entry representing the reason: `[["1.", "<reason_text_from_current_testcases>",
+          "N/A"]]`.', '*   The corresponding `compliance_ids` list will be a list containing a single empty list: `[[]]`.',
+        '*   Combine these into a single object and append it to `aggregated_test_results`. Then, proceed to **Step 5**.',
+        4.  **Process Test Cases and Compliance from Table**, '*   This step executes only if a Markdown table is present
+          in `current_testcases`.', '*   **Assume the table has four columns**: `Sr.No`, `Test Description`, `Expected Result`,
+          and `Applied Compliance`.', '*   Initialize two empty lists: `parsed_testcases` and `parsed_compliance`.', '*   Iterate
+          through each row of the Markdown table (excluding the header):', '*   **For each row**, create a list of strings
+          containing the values from the first three columns (`Sr.No`, `Test Description`, `Expected Result`). Append this
+          list to `parsed_testcases`.', '*   **For the same row**, read the `Applied Compliance` column. Parse its content
+          (e.g., a comma-separated string like "SOC 2, GDPR") into a list of compliance ID strings. Append this list of IDs
+          to `parsed_compliance`.', '*   **Example Structures**:', '*   `parsed_testcases` will look like:', '```json', '[',
+        '["1.", "Verify user can register...", "User account is created..."],', '["2.", "Verify PII is encrypted...", "PII
+          fields are encrypted..."]', ']', '```', '*   `parsed_compliance` will be a parallel list of lists:', '```json',
+        '[', '["SOC 2", "GDPR Article 32"],', '["CCPA Section 1798.150"]', ']', '```', 5.  **Aggregate the Final JSON Object**,
+        '*   Create a new JSON object for the current feature using the data from either Step 3 or Step 4.', '*   The structure
+          for this object must be:', '```json', '{', '"testcases": [ ... from parsed_testcases ... ],', '"compliance_ids":
+          [ ... from parsed_compliance ... ]', '}', '```', '*   Append this newly created JSON object to the main `aggregated_test_results`
+          list.', 6.  **Manage the Feature Queue**, '*   Read the `features_to_process` list from the session state.', '*   Remove
+          the **first element** from this list, as it corresponds to the feature that was just processed.', '*   Write the
+          modified list back to the `features_to_process` state variable.', 7.  **Control the Loop and Exit**, '*   After
+          updating the `features_to_process` list, check if it is now empty.', '*   **If the list is empty**: This signifies
+          that all features have been processed. Your final action is to call the `exit_loop()` tool to terminate the `LoopAgent`.',
+        '*   **If the list is not empty**: Do nothing further. The loop will proceed to the next iteration automatically.']
+      description: Collects Testcase after generation is complete and exits the loop if all features in features_to_process
+        list are processed
+      output_key: aggregated_testcases
+  testcase_generator_agent:
+    type: instance
+    params:
+      name: TestcaseGenerationEnginePipeline
+      description: Generates and refines a Testcase through an iterative review process
+      sub_agents: [initial_testcase_generator, refinement_loop]
+  testcase_generator_loop:
+    type: instance
+    params:
+      name: TestcaseGeneratorLoop
+      max_iterations: "5"
+      description: Iteratively generates Testcase until all features have been processed
+      sub_agents: [testcase_generator_agent, TestCaseProcessorAgent]
+  testcase_refiner:
+    type: instance
+    models: [gemini-2.0-flash]
+    params:
+      name: TestcaseRefinerAgent
+      instruction: ['You are a meticulous Test Case Refiner Agent. Your responsibility is to refine and update an existing
+          set of test cases based on structured review feedback. You must read the test cases from the shared state variable
+          `current_testcases` and the reviews from `testcase_reviews`, apply all valid recommendations, and write the fully
+          updated test suite back to `current_testcases`.', '## INPUTS', '**Current Testcase:**', '`{current_testcases}`',
+        '**Review Feedback:**', '`{testcase_reviews}`', '### Inputs and Outputs', '*   **Input (read-only)**:', '*   `current_testcases`:
+          Markdown table with exactly three columns: `Sr.No`, `Test Description`, `Expected Result`.', '*   `testcase_reviews`:
+          Markdown table with four columns: `TestCaseID`, `IssueCategory`, `Comment`, `Recommendation`.', '*   **Output (write-only)**:',
+        '*   `current_testcases`: The fully refined Markdown table containing the updated test suite.', '### Special Case:
+          Cannot Generate Test Cases', '**CRITICAL**: If either `testcase_reviews` or `current_testcases` explicitly indicates
+          that test cases cannot be generated (due to insufficient requirements, missing documentation, unclear specifications,
+          or any blocking issue), you MUST:', '1. Set `current_testcases` to contain ONLY the following message: "Test cases
+          cannot be generated due to insufficient information."', 2. Do NOT attempt any refinement process., '3. Do NOT add
+          any test case table, compliance rules, or additional explanatory text.', 4. Immediately terminate processing after
+          writing this message to `current_testcases`., '### Operational Workflow', '1.  **Load Inputs and Preserve Source
+          Document Section**:', '*   Parse the `current_testcases` table into an ordered list keyed by `Sr.No` (integers).',
+        '*   Parse the `testcase_reviews` table into a list of review items keyed by `TestCaseID`; allow `TestCaseID` to be
+          "N/A" for new coverage items.', '*   **CRITICAL**: Before making any changes, extract and store the complete `###
+          Source Requirement Document` section (including the header and all content underneath) from the existing `current_testcases`.
+          This section MUST be preserved exactly as-is and included at the end of your final output.', '2.  **Normalize and
+          Map**:', '*   Build a lookup map: `Sr.No` → `{description, expected_result}`.', '*   Build a review index grouped
+          by `IssueCategory`: `Coverage Gap`, `Compliance Gap`, `Incorrectness`, `Lack of Clarity`, `Incompleteness`, `Redundancy`,
+          and any additional categories encountered.', '3.  **Enrich Context When Needed**:', '*   If a review''s `Recommendation`
+          or `Comment` references requirements or compliance details that are not explicit, use your retrieval capability
+          to query the **Requirements** and **Compliance** corpora to clarify specifics. During this process, maintain a collection
+          of all compliance rules that are identified and applied.', '*   Do not add new fields; embed traceability references
+          inline in `Test Description` using bracketed tags (for example: `[REQ-123]`, `[COMP-PII-07]`).', '4.  **Apply Review
+          Categories Deterministically**:', '*   **Incorrectness**: Update the affected test case to align with the `Recommendation`
+          and source requirements/compliance. Ensure `Expected Result` states precise, verifiable outcomes.', '*   **Lack
+          of Clarity**: Rewrite `Test Description` and `Expected Result` to be specific, measurable, and unambiguous. Include
+          preconditions, action, and main input in `Test Description`.', '*   **Coverage Gap** (`TestCaseID` = "N/A" or missing):
+          Create new test cases that address every uncovered requirement or scenario described. Add at least one positive,
+          one negative, and, where applicable, boundary case per identified gap.', '*   **Compliance Gap**: Add explicit tests
+          to verify each mandated rule (masking, retention, consent, encryption, etc.). Include traceability tags like `[COMP-...]`
+          in `Test Description`. Ensure every rule identified here is added to the collection of applied compliance rules
+          for the final output.', '*   **Incompleteness**: Add missing negative, boundary, and error-path cases.', '*   **Redundancy**:
+          Merge or remove duplicates. Keep the most precise version.', '*   **Conflicting Reviews**: Resolve conflicts with
+          the following precedence: **Compliance** > **Requirement** > **Existing Test**. If ambiguous, choose the interpretation
+          that maximizes safety and compliance.', '5.  **Refinement Rules and Quality Gates**:', '*   Do not change the three-column
+          schema.', '*   Keep each row atomic: one clear purpose per test.', '*   Use consistent terminology from the requirements.',
+        '*   Avoid vague words; replace with observable outcomes. Quote exact messages or UI labels.', '*   For data privacy,
+          use masked or synthetic placeholders.', '*   Add inline traceability tags in `Test Description` for requirements
+          and compliance (e.g., `[REQ-45.2]`, `[COMP-GDPR-RTBF]`). The corresponding compliance rules for these tags must
+          be listed in the final output.', '*   Ensure every compliance rule and requirement referenced in reviews has at
+          least one explicit test case after refinement.', '6.  **Reordering, Renumbering, and Consistency**:', '*   Preserve
+          original order where practical; append new cases.', '*   After all changes, renumber `Sr.No` sequentially starting
+          at 1.', '*   Ensure there are no duplicate or empty rows.', '7.  **Final Validation Checklist**:', '*   No remaining
+          unaddressed items from `testcase_reviews`.', '*   All `Coverage Gap` and `Compliance Gap` items resulted in new
+          or updated tests.', '*   All `Redundancy` items resolved.', '*   All rows comply with the three-column schema and
+          atomicity rule.', '*   Traceability tags and the list of applied compliance rules are complete.', '*   The `###
+          Source Requirement Document` section has been preserved from the original input.', '8.  **Write Output and Format
+          Response**:', '*   Overwrite the shared state `current_testcases` with the final, refined Markdown table.', '*   Assemble
+          your final response according to the `Final Output Structure` rules below.', '### Final Output Structure', 'Your
+          final response must be structured as follows in this EXACT order. Do not include any other text, introductions,
+          or summaries.', 1.  The refined Markdown table containing the test cases., '| Sr.No | Test Description | Expected
+          Result |', '| :---- | :--------------- | :-------------- |', '| 1.    | ...              | ...             |', '|
+          2.    | ...              | ...             |', '| n.    | ...              | ...             |', '2.  A Markdown
+          list of all compliance rules applied or verified during the refinement process, presented under the header `###
+          Applied Compliance Rules`.', '3.  **MANDATORY**: The complete `### Source Requirement Document` section that was
+          extracted from the original `current_testcases` input in Step 1. This section MUST be included exactly as it appeared
+          in the input, with no modifications whatsoever. Do NOT omit this section under any circumstances.']
+      description: Refines Testcase based on feedback to improve quality
+      output_key: current_testcases
+  testcase_requirements_generator:
+    type: instance
+    models: [gemini-2.0-flash]
+    params:
+      name: TestcaseRequirementsGenerator
+      instruction: ['You are an expert Test Requirements Analyst agent. Your primary function is to receive a user''s request
+          for generating test cases and break it down into a clear, structured list of individual features for downstream
+          processing.', '### Agent Instructions', '1. **Analyze the User Request:** Carefully analyze the user''s entire request
+          to understand the full scope of the testing requirements.', '2. **Identify and Isolate Features:**', '* If the request
+          mentions multiple, logically separate software features, you must divide the request into a list where each item
+          represents one self-contained feature.', '* If the request describes a single, cohesive feature or process (even
+          if it involves multiple steps), you must treat it as one item in the list. Do not make unnecessary divisions of
+          a single workflow.', '* If the request is vague or high-level, treat the entire subject as a single feature.', '3.
+          **Format the Output:**', '* Your output must strictly conform to the OutputSchema defined below.', '* The features_to_process
+          field must contain a list of strings, where each string is a clear and concise description of an individual feature.',
+        '### Output Schema', 'Your response MUST conform to the following Pydantic schema:', '```python', 'class OutputSchema(BaseModel):',
+        'features_to_process: List[str] = Field(', description="List of features to process for test case generation"), '```',
+        '### Critical Output Directive', 'Your final output must be a valid JSON object matching the OutputSchema. Do not
+          add any descriptive labels, code block specifiers like `python` or `json`, or any other explanatory text outside
+          the JSON structure. The agent''s response will be stored directly in the session state for parsing by other agents,
+          and any extraneous content will cause a failure.', '### Examples', '#### Request with Multiple Features', '* **User
+          Request:** "I need to write test cases for our new e-commerce platform. Please cover the user registration flow,
+          the product search functionality, and the ability to add items to a wishlist."', '* **Correct Output:**', '```json',
+        '{', '"features_to_process": [', '"User registration flow for the e-commerce platform",', '"Product search functionality",',
+        '"Ability to add items to a wishlist"', ']', '}', '```', '#### Request with a Single, Cohesive Feature', '* **User
+          Request:** "Can you generate test cases for the complete checkout process? This should include selecting a payment
+          method, applying a discount code, and confirming the order."', '* **Correct Output:**', '```json', '{', '"features_to_process":
+          [', '"Complete checkout process, including selecting a payment method, applying a discount code, and confirming
+          the order"', ']', '}', '```', '#### Vague Request', '* **User Request:** "Test the user profile section."', '* **Correct
+          Output:**', '```json', '{', '"features_to_process": [', '"User profile section"', ']', '}', '```', '### Validation
+          Rules', 'Before finalizing your output, ensure:', '- The output is valid JSON matching the OutputSchema', '- The
+          features_to_process field is a list (array) of strings', '- Each string is clear, concise, and represents a testable
+          feature', '- No duplicate features are listed', '- Features are appropriately granular (not too broad, not too narrow)',
+        '- The JSON contains no additional fields beyond those in the schema', '---']
+      description: Generates an initial list of features to be processed from the user's request
+      output_key: requirements
+      output_schema: OutputSchema
+  testcase_reviewer:
+    type: instance
+    models: [gemini-2.0-flash]
+    tools: [rag_query]
+    params:
+      name: TestcaseReviewer
+      instruction: ['***', 'You are an expert Test Case Reviewer Agent. Your primary function is to meticulously audit a set
+          of test cases provided by a preceding agent. You must validate these test cases against the `requirements` and `compliance`
+          corpora to ensure accuracy, completeness, and adherence to standards.', '## System Context and Control Flow', 'You
+          operate as a specialized agent within a larger workflow managed by a parent loop called `testcase_generator_loop`.
+          Your sole responsibility is to review the test cases provided for a single feature and report your findings in a
+          structured table. You will **not** decide whether to continue or stop the process. The parent loop will analyze
+          your report and make all decisions, including whether to exit the loop or request further refinements.', '## Operational
+          Workflow', '### Ingest and Validate Input', '*   Load the content from the `current_testcases` state variable.',
+        '*   **Check for Generation Failure**: Analyze the loaded content. If it is a simple string message indicating an
+          error (e.g., "insufficient information," "feature not present") and not a structured test case table, you must skip
+          the review. In this case, your output must be a review table with a single entry detailing the failure. Then, halt
+          all further steps.', '*   **Analyze Test Cases**: If the input is a valid test case table, analyze the `Test Description`
+          column across all loaded test cases to identify the primary feature or system component being tested. This "feature
+          context" is essential for your subsequent queries.', '### Retrieve Source Requirements', '*   Based on the identified
+          feature context, formulate a precise query to fetch the original specifications.', '*   Use the `rag_query` tool
+          to search the `requirements` corpus.', '*   An example tool call is: `rag_query(corpora=[''requirements''], query=''Full
+          requirements and acceptance criteria for <identified_feature_name>'')`.', '### Retrieve Compliance Mandates', '*   Using
+          the same feature context, formulate a query to find all applicable regulations.', '*   Use the `rag_query` tool
+          to search the `compliance` corpus.', '*   An example tool call is: `rag_query(corpora=[''compliance''], query=''All
+          compliance rules and data handling policies for <identified_feature_name_or_domain>'')`.', '### Conduct a Multi-point
+          Review', '*   Cross-reference the `current_testcases` against the data retrieved from your `rag_query` calls.',
+        '*   Systematically check for the following issues:', '*   **Coverage Gaps**: Identify any requirements from the `requirements`
+          corpus that are not covered by at least one test case.', '*   **Compliance Gaps**: Find any compliance rules from
+          the `compliance` corpus that are not being explicitly validated by a test case.', '*   **Incorrectness**: Flag test
+          cases where the `Expected Result` contradicts the documented requirements or compliance rules.', '*   **Lack of
+          Clarity**: Identify test cases where the `Test Description` is ambiguous or the `Expected Result` is not specific,
+          measurable, or verifiable.', '*   **Incompleteness**: Note where the test suite lacks crucial scenarios (e.g., missing
+          negative tests, boundary value analysis).', '*   **Redundancy**: Pinpoint test cases that are semantically identical
+          to others.', '### Consolidate and Report Findings', '*   Your final output must **always** be a review table, which
+          will be stored in the `testcase_reviews` shared state.', '*   **If your review identifies any issues**: Consolidate
+          all findings into the structured review table with one row per issue.', '*   **If the test cases meet ALL requirements**:
+          Your output must be a review table containing a single entry that confirms approval.', '## Final Output Structure',
+        'This is the required format for the `testcase_reviews` state. Your output must always be a table like the one below,
+          populated according to your findings.', '| TestCaseID | IssueCategory | Comment | Recommendation |', '| :--- | :---
+          | :--- | :--- |', '| N/A | Approval | Test case suite meets all requirements and compliance standards. | No further
+          refinement needed. |', '| N/A | Generation Failure | Initial test case generation did not produce a valid test plan.
+          | Regenerate test cases from requirements. |', '| 5 | Coverage Gap | Test case for password reset does not cover
+          the requirement for sending a confirmation email. | Add a new step to verify that a confirmation email is sent to
+          the user''s registered address. |', '| N/A | Compliance Gap | No test cases exist to verify compliance with GDPR
+          data deletion requests. | Create a new test suite for GDPR right-to-be-forgotten scenarios. |', '| 12 | Lack of
+          Clarity | The expected result "User is logged in" is too vague. | Change the expected result to: "User is redirected
+          to the dashboard page." |', '| 14 | Redundancy | This test case is a semantic duplicate of test case #8. | Merge
+          this test case with test case #8 and delete this one. |', '## Testcase to Review', '{current_testcases}', '***']
+      description: Reviews Testcase quality and provides feedback on what to improve
+      output_key: testcase_reviews
+  TestCaseProcessorAgent.0:
+    type: instance
+    models: [gemini-2.5-flash]
+    params:
+      instance: TestCaseProcessorAgent
+  TestCaseProcessorAgent.1:
+    type: instance
+    models: [gemini-2.5-flash]
+
+models:
+  gemini-2.0-flash:
+    type: literal
+    agents: [testcase_reviewer, testcase_refiner, feature_manager, testcase_requirements_generator, testcase_collector]
+  gemini-2.5-flash:
+    type: default
+    agents: [agent.TestCaseProcessorAgent.0, TestCaseProcessorAgent.0, agent.TestCaseProcessorAgent.1, TestCaseProcessorAgent.1]
+  gemini-2.5-pro:
+    type: literal
+    agents: [enhancer_engine, initial_testcase_generator, root_agent]
+
+tools:
+  clear_session_state:
+    type: function
+    agents: [root_agent]
+    params:
+      description: |-
+        Clears all session state variables.
+
+        This tool removes all data from the current session state,
+        effectively resetting the conversation context.
+
+        Returns:
+            dict: Status message indicating successful state clearing.
+  exit_loop:
+    type: function
+    agents: [testcase_collector]
+    params:
+      description: |-
+        Call this function ONLY when the features_to_process list is empty,
+        signaling the iterative process should end.
+
+        Args:
+            tool_context: Context for tool execution
+
+        Returns:
+            Empty dictionary
+  rag_query:
+    type: function
+    agents: [testcase_reviewer, enhancer_engine, initial_testcase_generator]
+    params:
+      description: |-
+        Query one or more Vertex AI RAG corpora and return aggregated results.
+
+        Args:
+          corpora: List of corpus display names. If empty, uses tool_context.state["current_corpus"].
+          query: User query text
+          tool_context: ADK ToolContext
+
+        Returns:
+          dict: status, message, corpora, results, results_count
+
+teams:
+  enhancer_engine_agent:
+    type: sequential
+    agents: [enhancer_engine_agent, enhancer_engine, TestCaseProcessorAgent.1]
+  new_testcase_generator:
+    type: sequential
+    agents: [new_testcase_generator, testcase_requirements_generator, testcase_generator_loop]
+  refinement_loop:
+    type: loop
+    agents: [refinement_loop, testcase_reviewer, testcase_refiner]
+  root_agent:
+    type: hierarchy
+    agents: [root_agent, new_testcase_generator, enhancer_engine_agent]
+  testcase_generator_agent:
+    type: sequential
+    agents: [testcase_generator_agent, initial_testcase_generator, refinement_loop]
+  testcase_generator_loop:
+    type: loop
+    agents: [testcase_generator_loop, testcase_generator_agent, TestCaseProcessorAgent]
+
+imports:
+  agent: agent
+  Agent: google.adk.agents.Agent
+  agent_engines: vertexai.agent_engines
+  AgentTool: google.adk.tools.agent_tool.AgentTool
+  Any: typing.Any
+  ARRAY: sqlalchemy.dialects.postgresql.ARRAY
+  AsyncGenerator: typing.AsyncGenerator
+  AsyncRetrying: tenacity.AsyncRetrying
+  atexit: atexit
+  BackgroundTasks: fastapi.BackgroundTasks
+  Base: models.Base
+  base64: base64
+  BaseAgent: google.adk.agents.BaseAgent
+  BaseModel: pydantic.BaseModel
+  before_sleep_log: tenacity.before_sleep_log
+  Boolean: sqlalchemy.Boolean
+  check_corpus_exists: utils.check_corpus_exists
+  Column: sqlalchemy.Column
+  ConversationHistory: models.ConversationHistory
+  ConversationMetadata: models.ConversationMetadata
+  CORSMiddleware: fastapi.middleware.cors.CORSMiddleware
+  create_engine: sqlalchemy.create_engine
+  create_jira_test_case: jira_service.create_jira_test_case
+  DatabaseSessionService: google.adk.sessions.DatabaseSessionService
+  datetime: datetime.datetime
+  DateTime: sqlalchemy.DateTime
+  declarative_base: sqlalchemy.orm.declarative_base
+  DefaultCredentialsError: google.auth.exceptions.DefaultCredentialsError
+  Dict: typing.Dict
+  Document: models.Document
+  engine: models.engine
+  enhancer_engine: subagents.enhancer_engine.enhancer_engine
+  enhancer_engine_agent: enhancer.agent.enhancer_engine_agent
+  Event: google.adk.events.Event
+  EventActions: google.adk.events.EventActions
+  exit_loop: exit_loop.exit_loop
+  FastAPI: fastapi.FastAPI
+  feature_manager: agent.feature_manager
+  fetch_jira_projects: jira_service.fetch_jira_projects
+  fetch_jira_requirements: jira_service.fetch_jira_requirements
+  Field: pydantic.Field
+  File: fastapi.File
+  Form: fastapi.Form
+  func: sqlalchemy.func
+  GenerativeModel: vertexai.generative_models.GenerativeModel
+  get_corpus_info: get_corpus_info.get_corpus_info
+  get_corpus_resource_name: utils.get_corpus_resource_name
+  get_valid_connection: jira_service.get_valid_connection
+  HTTPException: fastapi.HTTPException
+  httpx: httpx
+  Index: sqlalchemy.Index
+  initial_testcase_generator: subagents.testcase_generator.initial_testcase_generator
+  Integer: sqlalchemy.Integer
+  InvocationContext: google.adk.agents.invocation_context.InvocationContext
+  JiraConnection: models.JiraConnection
+  JSON: sqlalchemy.JSON
+  json: json
+  JSONB: sqlalchemy.dialects.postgresql.JSONB
+  JSONResponse: fastapi.responses.JSONResponse
+  List: typing.List
+  list_corpora: list_corpora.list_corpora
+  LlmAgent: google.adk.agents.llm_agent.LlmAgent
+  load_dotenv: dotenv.load_dotenv
+  LOCATION: config.LOCATION
+  logging: logging
+  LoopAgent: google.adk.agents.LoopAgent
+  new_testcase_generator: agent.new_testcase_generator
+  normalize_agent_payload: agent_api.normalize_agent_payload
+  Optional: typing.Optional
+  os: os
+  override: typing_extensions.override
+  PROJECT_ID: config.PROJECT_ID
+  Query: fastapi.Query
+  quote_plus: urllib.parse.quote_plus
+  rag: vertexai.rag
+  rag_query: rag_query.rag_query
+  re: re
+  RedirectResponse: fastapi.responses.RedirectResponse
+  Request: fastapi.Request
+  requests: requests
+  RequirementTrace: models.RequirementTrace
+  ResourceExhausted: google.api_core.exceptions.ResourceExhausted
+  retry: tenacity.retry
+  retry_if_exception: tenacity.retry_if_exception
+  retry_if_exception_type: tenacity.retry_if_exception_type
+  root_agent: Master_agent.agent.root_agent
+  run_in_threadpool: fastapi.concurrency.run_in_threadpool
+  Runner: google.adk.runners.Runner
+  secrets: secrets
+  SequentialAgent: google.adk.agents.SequentialAgent
+  SessionLocal: models.SessionLocal
+  sessionmaker: sqlalchemy.orm.sessionmaker
+  set_current_corpus: utils.set_current_corpus
+  SQLAlchemyError: sqlalchemy.exc.SQLAlchemyError
+  stop_after_attempt: tenacity.stop_after_attempt
+  storage: google.cloud.storage
+  String: sqlalchemy.String
+  tempfile: tempfile
+  testcase_collector: agent.testcase_collector
+  testcase_generator_agent: subagents.testcase_generator_agent.testcase_generator_agent
+  testcase_refiner: agent.testcase_refiner
+  testcase_requirements_generator: subagents.requirement_analyst.testcase_requirements_generator
+  testcase_reviewer: subagents.testcase_reviewer.testcase_reviewer
+  TestCaseExport: models.TestCaseExport
+  TestCaseProcessorAgent: TestCaseProcessorAgent.TestCaseProcessorAgent
+  text: sqlalchemy.text
+  Text: sqlalchemy.Text
+  time: time
+  timedelta: datetime.timedelta
+  timezone: datetime.timezone
+  ToolContext: google.adk.tools.tool_context.ToolContext
+  traceback: traceback
+  types: google.genai.types
+  Union: typing.Union
+  UploadFile: fastapi.UploadFile
+  urlencode: urllib.parse.urlencode
+  uuid: uuid
+  vertexai: vertexai
+  wait_fixed: tenacity.wait_fixed
+  wait_random_exponential: tenacity.wait_random_exponential
+
+functions:
+  __init__:
+    type: sync
+    module: Master_agent.subagents.enhancer.subagents.feature_manager.TestCaseProcessorAgent
+    args: [self, name]
+  __repr__:
+    type: sync
+    module: models
+    args: [self]
+  _run_async_impl:
+    type: async
+    module: Master_agent.subagents.enhancer.subagents.feature_manager.TestCaseProcessorAgent
+    args: [self, ctx]
+    params:
+      returns: AsyncGenerator
+  analytics_exports_timeseries:
+    type: async
+    module: main
+    args: [user_id, days]
+  analytics_overview:
+    type: async
+    module: main
+    args: [user_id]
+  analytics_session_detail:
+    type: async
+    module: main
+    args: [session_id, user_id]
+  calculate_test_case_count:
+    type: sync
+    module: main
+    args: [aggregated_testcases]
+    params:
+      returns: int
+  call_vertex_agent:
+    type: sync
+    module: main
+    args: [user_id, session_id, message]
+    params:
+      returns: list
+  check_corpus_exists:
+    type: sync
+    module: Master_agent.subagents.enhancer.subagents.enhancer_engine.tools.utils
+    args: [corpus_name, tool_context]
+    params:
+      returns: bool
+  check_duplicate_requirements:
+    type: async
+    module: main
+    args: [data]
+  clear_session_state:
+    type: sync
+    module: Master_agent.agent
+    args: [tool_context]
+    params:
+      returns: dict
+  create_jira_test_case:
+    type: sync
+    module: jira_service
+    args: [user_id, project_key, test_case, requirement_key]
+  create_new_session:
+    type: async
+    module: main
+    args: [req]
+  create_test_case_oauth:
+    type: async
+    module: main
+    args: [data]
+  delete_requirement:
+    type: async
+    module: main
+    args: [requirement_id, user_id, session_id]
+  exit_loop:
+    type: sync
+    module: Master_agent.subagents.testcase_generator_orchestrator.subagents.generated_testcase_collector.exit_loop
+    args: [tool_context]
+    params:
+      returns: Dict
+  fetch_jira_projects:
+    type: sync
+    module: jira_service
+    args: [user_id]
+  fetch_jira_requirements:
+    type: sync
+    module: jira_service
+    args: [user_id, project_key]
+  fetch_requirements:
+    type: async
+    module: main
+    args: [data]
+  format_description_for_jira:
+    type: sync
+    module: main
+    args: [data]
+    params:
+      returns: dict
+  generate_fallback_summary:
+    type: sync
+    module: Master_agent.subagents.testcase_generator_orchestrator.subagents.feature_manager.TestCaseProcessorAgent
+    args: [aggregated_testcases, total_individual_tests, all_compliance_ids]
+    params:
+      returns: str
+  generate_fallback_summary_from_markdown:
+    type: sync
+    module: Master_agent.subagents.enhancer.subagents.feature_manager.TestCaseProcessorAgent
+    args: [current_testcases]
+    params:
+      returns: str
+  get_corpus_info:
+    type: sync
+    module: Master_agent.subagents.testcase_generator_orchestrator.subagents.testcase_generator_agent.subagents.testcase_generator.tools.get_corpus_info
+    args: [corpus_name, tool_context]
+    params:
+      returns: dict
+  get_corpus_resource_name:
+    type: sync
+    module: Master_agent.subagents.enhancer.subagents.enhancer_engine.tools.utils
+    args: [corpus_name]
+    params:
+      returns: str
+  get_feature_list:
+    type: sync
+    module: Master_agent.subagents.testcase_generator_orchestrator.subagents.feature_manager.TestCaseProcessorAgent
+    args: [state]
+  get_jira_auth_header:
+    type: sync
+    module: main
+    params:
+      returns: str
+  get_jira_exports:
+    type: async
+    module: main
+    args: [user_id, session_id]
+  get_projects:
+    type: async
+    module: main
+    args: [user_id]
+  get_session_documents:
+    type: async
+    module: main
+    args: [session_id, user_id]
+  get_session_messages:
+    type: async
+    module: main
+    args: [session_id, user_id]
+  get_session_requirements_ui:
+    type: async
+    module: main
+    args: [session_id, user_id]
+  get_valid_connection:
+    type: sync
+    module: jira_service
+    args: [user_id]
+    params:
+      returns: Optional[JiraConnection]
+  import_jira_requirements:
+    type: async
+    module: main
+    args: [background_tasks, data]
+  import_to_rag_engine:
+    type: sync
+    module: main
+    args: [doc_id, gcs_uri, user_id, session_id, filename]
+  jira_callback:
+    type: async
+    module: main
+    args: [code, state]
+  jira_callback_post:
+    type: async
+    module: main
+    args: [payload]
+  jira_connect:
+    type: async
+    module: main
+    args: [user_id]
+  jira_disconnect:
+    type: async
+    module: main
+    args: [user_id]
+  jira_status:
+    type: async
+    module: main
+    args: [user_id]
+  list_corpora:
+    type: sync
+    module: Master_agent.subagents.enhancer.subagents.enhancer_engine.tools.list_corpora
+    params:
+      returns: dict
+  list_sessions:
+    type: async
+    module: main
+    args: [user_id]
+  parse_testcases_to_json:
+    type: async
+    module: Master_agent.subagents.enhancer.subagents.feature_manager.TestCaseProcessorAgent
+    args: [current_testcases, model_name]
+    params:
+      returns: dict
+  rag_query:
+    type: sync
+    module: Master_agent.subagents.testcase_generator_orchestrator.subagents.testcase_generator_agent.subagents.testcase_reviewer.tools.rag_query
+    args: [corpora, query, tool_context]
+    params:
+      returns: Dict
+  refresh_token_if_needed:
+    type: sync
+    module: jira_service
+    args: [connection]
+    params:
+      returns: bool
+  rename_session_title:
+    type: async
+    module: main
+    args: [session_id, payload, user_id]
+  root:
+    type: async
+    module: main
+  run_agent:
+    type: async
+    module: main
+    args: [req]
+  send_message:
+    type: async
+    module: main
+    args: [session_id, req]
+  set_current_corpus:
+    type: sync
+    module: Master_agent.subagents.enhancer.subagents.enhancer_engine.tools.utils
+    args: [corpus_name, tool_context]
+    params:
+      returns: bool
+  strict_origin_guard:
+    type: async
+    module: main
+    args: [request, call_next]
+  summarize_testcases_from_markdown:
+    type: async
+    module: Master_agent.subagents.enhancer.subagents.feature_manager.TestCaseProcessorAgent
+    args: [current_testcases, model_name]
+    params:
+      returns: str
+  summarize_testcases_output:
+    type: async
+    module: Master_agent.subagents.testcase_generator_orchestrator.subagents.feature_manager.TestCaseProcessorAgent
+    args: [aggregated_testcases, model_name]
+    params:
+      returns: str
+  test_jira_connection:
+    type: async
+    module: main
+  toggle_document_active:
+    type: async
+    module: main
+    args: [document_id, user_id, is_active]
+  upload_and_query_agent:
+    type: sync
+    module: main
+    args: [contents, filename, user_id, session_id]
+    params:
+      returns: dict
+  upload_document_rag:
+    type: async
+    module: main
+    args: [file, user_id, session_id]
+  upload_file:
+    type: async
+    module: main
+    args: [file, user_id, session_id]
+  upload_requirements_to_rag:
+    type: sync
+    module: main
+    args: [requirements, session_id, user_id]
+
+variables:
+  AGENT_RESOURCE_ID:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [main]
+  BUCKET_NAME:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [main]
+  DATA_STORE_ID:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [Master_agent.subagents.testcase_generator_orchestrator.subagents.testcase_generator_agent.subagents.testcase_generator.tools.rag_query,
+        main]
+  DB_NAME:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [models]
+  DB_PASSWORD:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [models]
+  DB_PUBLIC_IP:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [models]
+  DB_USER:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [models]
+  GOOGLE_CLOUD_LOCATION:
+    type: env
+    params:
+      caller: [os.environ.get, os.getenv]
+      path: [Master_agent.subagents.testcase_generator_orchestrator.subagents.testcase_generator_agent.subagents.testcase_reviewer.config,
+        Master_agent.subagents.testcase_generator_orchestrator.subagents.testcase_generator_agent.subagents.testcase_generator.config,
+        Master_agent.subagents.testcase_generator_orchestrator.subagents.testcase_generator_agent, Master_agent.subagents.testcase_generator_orchestrator.subagents.testcase_generator_agent.subagents.testcase_generator.tools.rag_query,
+        Master_agent.subagents.enhancer.subagents.enhancer_engine.config, main]
+  GOOGLE_CLOUD_PROJECT:
+    type: env
+    params:
+      caller: [os.environ.get, os.getenv]
+      path: [Master_agent.subagents.testcase_generator_orchestrator.subagents.testcase_generator_agent.subagents.testcase_reviewer.config,
+        Master_agent.subagents.testcase_generator_orchestrator.subagents.testcase_generator_agent.subagents.testcase_generator.config,
+        Master_agent.subagents.testcase_generator_orchestrator.subagents.testcase_generator_agent, Master_agent.subagents.testcase_generator_orchestrator.subagents.testcase_generator_agent.subagents.testcase_generator.tools.rag_query,
+        Master_agent.subagents.enhancer.subagents.enhancer_engine.config, main]
+  GOOGLE_CLOUD_STAGING_BUCKET:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [main]
+  JIRA_API_TOKEN:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [main]
+  JIRA_DOMAIN:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [main]
+  JIRA_EMAIL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [main]
+  JIRA_OAUTH_CALLBACK_URL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [jira_service, main]
+  JIRA_OAUTH_CLIENT_ID:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [jira_service, main]
+  JIRA_OAUTH_CLIENT_SECRET:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [jira_service, main]
+  token_url:
+    type: env
+    params:
+      caller: [refresh_token_if_needed, jira_callback, jira_callback_post]
+
+networks:
+  api.atlassian.com:
+    type: api
+    actions: [GET]
+    urls: ['/{...}', /oauth/token/accessible-resources]
+    protocols: [https]
+    ports: ["443"]
+    params:
+      pattern: https://api.atlassian.com/ex/jira/{conn.jira_cloud_id}/rest/api/3/project
+      caller: [fetch_jira_projects, jira_callback, jira_callback_post]
+  api.atlassian.com.1:
+    type: api
+    actions: [GET]
+    urls: ['/{...}']
+    protocols: [https]
+    ports: ["443"]
+    params:
+      pattern: https://api.atlassian.com/ex/jira/{conn.jira_cloud_id}/rest/api/3/search/jql
+      caller: [fetch_jira_requirements]
+  api.atlassian.com.2:
+    type: api
+    actions: [GET]
+    urls: ['/{...}']
+    protocols: [https]
+    ports: ["443"]
+    params:
+      pattern: https://api.atlassian.com/ex/jira/{conn.jira_cloud_id}/rest/api/3/issue
+      caller: [create_jira_test_case]
+  api_url:
+    type: api
+    actions: [GET]
+    protocols: [https]
+    ports: ["443"]
+    params:
+      pattern: https://{JIRA_DOMAIN}/rest/api/3/project
+      caller: [test_jira_connection]
+      dynamic: "True"
+      variable: api_url
+  auth.atlassian.com:
+    type: api
+    actions: [POST]
+    urls: [/oauth/token]
+    protocols: [https]
+    ports: ["443"]
+    params:
+      caller: [refresh_token_if_needed, jira_callback, jira_callback_post]
+  auth.atlassian.com.1:
+    type: api
+    actions: [GET]
+    urls: ['/{...}']
+    protocols: [https]
+    ports: ["443"]
+    params:
+      pattern: https://auth.atlassian.com/authorize?{urlencode}
+      caller: [jira_connect]
+  localhost:
+    type: api
+    actions: [GET]
+    urls: ['/jira-connected?success=true']
+    protocols: [http]
+    ports: ["5173"]
+    params:
+      caller: [jira_callback]
+      links: [url]
